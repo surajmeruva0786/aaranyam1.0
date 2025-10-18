@@ -3,24 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifier Dashboard - AgriClaim</title>
+    <title>Document Verifier Dashboard - AgriClaim</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dashboard-styles.css">
-    <style>
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(102, 126, 234, 0.15);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 50px;
-            color: #667eea;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="verifier-styles.css">
 </head>
 <body>
     <div class="background-animation">
@@ -52,81 +38,161 @@
                     <span>✓</span>
                     <span>Verifier Portal</span>
                 </div>
-                <h1 class="dashboard-title">Verifier Dashboard</h1>
-                <p class="dashboard-subtitle" id="officialName">Welcome back, Verifier!</p>
+                <h1 class="dashboard-title">Document Verifier Dashboard</h1>
+                <p class="dashboard-subtitle" id="verifierName">Welcome back, Verifier!</p>
             </div>
 
-            <div class="user-info-card">
-                <h3 class="info-title">Your Role & Responsibilities</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Role</div>
-                        <div class="info-value">Claims Verifier</div>
+            <div class="stats-overview">
+                <div class="stat-card stat-pending">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalPending">0</div>
+                        <div class="stat-label">Pending Review</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Access Level</div>
-                        <div class="info-value">Level 2</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-approved">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalApproved">0</div>
+                        <div class="stat-label">Approved Today</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Department</div>
-                        <div class="info-value">Agriculture Verification</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-rejected">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalRejected">0</div>
+                        <div class="stat-label">Rejected</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Login Time</div>
-                        <div class="info-value" id="loginTime">-</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-forwarded">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalForwarded">0</div>
+                        <div class="stat-label">Forwarded</div>
+                    </div>
+                    <div class="stat-glow"></div>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-header">
+                    <h2 class="section-title-filter">Filter Claims</h2>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select id="filterStatus" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="Forwarded">Forwarded to Field Officer</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Crop Type</label>
+                        <select id="filterCrop" class="filter-select">
+                            <option value="">All Crops</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Loss Cause</label>
+                        <select id="filterCause" class="filter-select">
+                            <option value="">All Causes</option>
+                            <option value="Drought">Drought</option>
+                            <option value="Flood">Flood</option>
+                            <option value="Pest Attack">Pest Attack</option>
+                            <option value="Disease">Disease</option>
+                            <option value="Storm/Hail">Storm/Hail</option>
+                            <option value="Fire">Fire</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" id="filterSearch" class="filter-input" placeholder="Search by farmer name or claim ID...">
                     </div>
                 </div>
             </div>
 
             <div class="claims-section" id="claims">
                 <div class="section-header-flex">
-                    <h2 class="section-title-dash">Claims Pending Verification</h2>
-                    <div class="claims-stats">
-                        <div class="stat-badge pending-badge">
-                            <span class="stat-value">12</span>
-                            <span class="stat-label">Pending</span>
-                        </div>
-                        <div class="stat-badge approved-badge">
-                            <span class="stat-value">48</span>
-                            <span class="stat-label">Verified Today</span>
-                        </div>
+                    <h2 class="section-title-dash">All Claims</h2>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="grid" onclick="switchView('grid')">
+                            <span>📊</span> Grid
+                        </button>
+                        <button class="view-btn" data-view="list" onclick="switchView('list')">
+                            <span>📋</span> List
+                        </button>
                     </div>
                 </div>
 
-                <div class="claims-table-container">
-                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
-                        Verifier dashboard content will be implemented here. This page shows claims pending verification.
-                    </p>
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner-large"></div>
+                    <p>Loading claims from Google Sheets...</p>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h3>No Claims Found</h3>
+                    <p>No farmer claims match your current filters. Try adjusting the filters above.</p>
+                </div>
+
+                <div class="claims-grid" id="claimsGrid">
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="modal-overlay" id="actionModal">
+        <div class="modal-container modal-confirmation">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Confirm Action</h2>
+                <button class="modal-close" onclick="closeActionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirmation-content">
+                    <div class="confirmation-icon" id="confirmationIcon">✓</div>
+                    <p class="confirmation-message" id="confirmationMessage">
+                        Are you sure you want to perform this action?
+                    </p>
+                    <div class="claim-summary" id="claimSummary"></div>
+                    <div class="form-group" id="remarksGroup" style="display: none;">
+                        <label class="form-label">Remarks (Optional)</label>
+                        <textarea id="actionRemarks" class="form-input" rows="3" placeholder="Add any remarks or notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeActionModal()">Cancel</button>
+                <button class="btn btn-primary" id="confirmActionBtn" onclick="confirmAction()">
+                    <span class="btn-text">Confirm</span>
+                    <div class="spinner"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal-container modal-details">
+            <div class="modal-header">
+                <h2 class="modal-title">Claim Details</h2>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
-    <script>
-        function logout() {
-            localStorage.removeItem('officialData');
-            window.location.href = 'official_login.html';
-        }
-
-        window.addEventListener('DOMContentLoaded', function() {
-            const officialData = localStorage.getItem('officialData');
-            if (!officialData) {
-                window.location.href = 'official_login.html';
-                return;
-            }
-
-            try {
-                const data = JSON.parse(officialData);
-                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
-                
-                const loginTime = new Date(data.loginTime);
-                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
-            } catch (e) {
-                console.error('Error parsing official data:', e);
-                window.location.href = 'official_login.html';
-            }
-        });
-    </script>
+    <script src="verifier.js"></script>
 </body>
 </html>
