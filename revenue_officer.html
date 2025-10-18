@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revenue Officer Dashboard - AgriClaim</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard-styles.css">
+    <style>
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(67, 233, 123, 0.15);
+            border: 1px solid rgba(67, 233, 123, 0.3);
+            border-radius: 50px;
+            color: #43e97b;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation">
+        <div class="gradient-bg"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="logo" onclick="window.location.href='index.html'">
+                <span class="logo-icon">🌾</span>
+                <span class="logo-text">AgriClaim</span>
+            </div>
+            <div class="nav-links">
+                <a href="#approvals" class="nav-link">Approvals</a>
+                <a href="#calculations" class="nav-link">Calculations</a>
+                <a href="#disbursements" class="nav-link">Disbursements</a>
+            </div>
+            <div class="nav-buttons">
+                <button class="btn btn-outline" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="container">
+            <div class="dashboard-header">
+                <div class="role-badge">
+                    <span>💰</span>
+                    <span>Revenue Officer Portal</span>
+                </div>
+                <h1 class="dashboard-title">Revenue Officer Dashboard</h1>
+                <p class="dashboard-subtitle" id="officialName">Welcome back, Revenue Officer!</p>
+            </div>
+
+            <div class="user-info-card">
+                <h3 class="info-title">Your Role & Responsibilities</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Role</div>
+                        <div class="info-value">Revenue Processing</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Access Level</div>
+                        <div class="info-value">Level 4</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Department</div>
+                        <div class="info-value">Financial Operations</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Login Time</div>
+                        <div class="info-value" id="loginTime">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="claims-section">
+                <div class="section-header-flex">
+                    <h2 class="section-title-dash">Claims for Processing</h2>
+                    <div class="claims-stats">
+                        <div class="stat-badge pending-badge">
+                            <span class="stat-value">15</span>
+                            <span class="stat-label">Pending</span>
+                        </div>
+                        <div class="stat-badge approved-badge">
+                            <span class="stat-value">₹2.4M</span>
+                            <span class="stat-label">Processed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="claims-table-container">
+                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
+                        Revenue Officer dashboard content will be implemented here. This page shows claims for financial processing.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('officialData');
+            window.location.href = 'official_login.html';
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            const officialData = localStorage.getItem('officialData');
+            if (!officialData) {
+                window.location.href = 'official_login.html';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(officialData);
+                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
+                
+                const loginTime = new Date(data.loginTime);
+                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
+            } catch (e) {
+                console.error('Error parsing official data:', e);
+                window.location.href = 'official_login.html';
+            }
+        });
+    </script>
+</body>
+</html>

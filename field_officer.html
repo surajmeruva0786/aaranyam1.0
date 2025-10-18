@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Officer Dashboard - AgriClaim</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard-styles.css">
+    <style>
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(240, 147, 251, 0.15);
+            border: 1px solid rgba(240, 147, 251, 0.3);
+            border-radius: 50px;
+            color: #f093fb;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation">
+        <div class="gradient-bg"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="logo" onclick="window.location.href='index.html'">
+                <span class="logo-icon">🌾</span>
+                <span class="logo-text">AgriClaim</span>
+            </div>
+            <div class="nav-links">
+                <a href="#inspections" class="nav-link">Field Inspections</a>
+                <a href="#schedule" class="nav-link">Schedule</a>
+                <a href="#reports" class="nav-link">Reports</a>
+            </div>
+            <div class="nav-buttons">
+                <button class="btn btn-outline" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="container">
+            <div class="dashboard-header">
+                <div class="role-badge">
+                    <span>🔍</span>
+                    <span>Field Officer Portal</span>
+                </div>
+                <h1 class="dashboard-title">Field Officer Dashboard</h1>
+                <p class="dashboard-subtitle" id="officialName">Welcome back, Field Officer!</p>
+            </div>
+
+            <div class="user-info-card">
+                <h3 class="info-title">Your Role & Responsibilities</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Role</div>
+                        <div class="info-value">Field Inspector</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Access Level</div>
+                        <div class="info-value">Level 3</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Department</div>
+                        <div class="info-value">Field Operations</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Login Time</div>
+                        <div class="info-value" id="loginTime">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="claims-section">
+                <div class="section-header-flex">
+                    <h2 class="section-title-dash">Scheduled Inspections</h2>
+                    <div class="claims-stats">
+                        <div class="stat-badge pending-badge">
+                            <span class="stat-value">8</span>
+                            <span class="stat-label">Today</span>
+                        </div>
+                        <div class="stat-badge approved-badge">
+                            <span class="stat-value">23</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="claims-table-container">
+                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
+                        Field Officer dashboard content will be implemented here. This page shows scheduled field inspections.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('officialData');
+            window.location.href = 'official_login.html';
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            const officialData = localStorage.getItem('officialData');
+            if (!officialData) {
+                window.location.href = 'official_login.html';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(officialData);
+                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
+                
+                const loginTime = new Date(data.loginTime);
+                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
+            } catch (e) {
+                console.error('Error parsing official data:', e);
+                window.location.href = 'official_login.html';
+            }
+        });
+    </script>
+</body>
+</html>
