@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmer Registration - AgriClaim</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 20px 40px;
+        }
+
+        .auth-card {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            padding: 48px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: fadeInScale 0.6s ease;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .auth-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5));
+            animation: float1 3s ease-in-out infinite;
+        }
+
+        .auth-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 8px;
+        }
+
+        .auth-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            font-size: 15px;
+            color: white;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .form-input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #f093fb;
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-message {
+            color: #f093fb;
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        textarea.form-input {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        .submit-btn.loading .btn-text {
+            display: none;
+        }
+
+        .submit-btn.loading .spinner {
+            display: block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 32px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        .auth-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .auth-link:hover {
+            color: var(--primary);
+        }
+
+        .success-message {
+            display: none;
+            padding: 16px;
+            background: rgba(67, 233, 123, 0.1);
+            border: 1px solid rgba(67, 233, 123, 0.3);
+            border-radius: 12px;
+            color: #43e97b;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @media (max-width: 640px) {
+            .auth-card {
+                padding: 32px 24px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .auth-title {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation">
+        <div class="gradient-bg"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="logo" onclick="window.location.href='index.html'">
+                <span class="logo-icon">🌾</span>
+                <span class="logo-text">AgriClaim</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html#home" class="nav-link">Home</a>
+                <a href="index.html#features" class="nav-link">Features</a>
+                <a href="farmer-login.html" class="nav-link">Login</a>
+            </div>
+            <div class="nav-buttons">
+                <button class="btn btn-outline" onclick="window.location.href='farmer-login.html'">Login</button>
+                <button class="btn btn-primary" onclick="window.location.href='index.html'">Back to Home</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-icon">👨‍🌾</div>
+                <h1 class="auth-title">Farmer Registration</h1>
+                <p class="auth-subtitle">Create your account to start filing claims</p>
+            </div>
+
+            <div class="success-message" id="successMessage">
+                Registration successful! Redirecting to login...
+            </div>
+
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="fullName">Full Name *</label>
+                    <input 
+                        type="text" 
+                        id="fullName" 
+                        class="form-input" 
+                        placeholder="Enter your full name"
+                        required
+                    >
+                    <div class="error-message" id="fullNameError"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="contactNumber">Contact Number *</label>
+                        <input 
+                            type="tel" 
+                            id="contactNumber" 
+                            class="form-input" 
+                            placeholder="10-digit mobile number"
+                            required
+                        >
+                        <div class="error-message" id="contactNumberError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="aadharId">Aadhar ID *</label>
+                        <input 
+                            type="text" 
+                            id="aadharId" 
+                            class="form-input" 
+                            placeholder="12-digit Aadhar number"
+                            required
+                        >
+                        <div class="error-message" id="aadharIdError"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="address">Address *</label>
+                    <textarea 
+                        id="address" 
+                        class="form-input" 
+                        placeholder="Enter your complete address"
+                        required
+                    ></textarea>
+                    <div class="error-message" id="addressError"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="landArea">Land Area (Acres) *</label>
+                        <input 
+                            type="number" 
+                            id="landArea" 
+                            class="form-input" 
+                            placeholder="e.g., 5.5"
+                            step="0.01"
+                            required
+                        >
+                        <div class="error-message" id="landAreaError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="landType">Land Type *</label>
+                        <input 
+                            type="text" 
+                            id="landType" 
+                            class="form-input" 
+                            placeholder="e.g., Irrigated/Rainfed"
+                            required
+                        >
+                        <div class="error-message" id="landTypeError"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password *</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input" 
+                        placeholder="Create a strong password"
+                        required
+                    >
+                    <div class="error-message" id="passwordError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirm Password *</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        class="form-input" 
+                        placeholder="Re-enter your password"
+                        required
+                    >
+                    <div class="error-message" id="confirmPasswordError"></div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span class="btn-text">Register Now</span>
+                    <div class="spinner"></div>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="farmer-login.html" class="auth-link">Login here</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="auth.js"></script>
+</body>
+</html>
