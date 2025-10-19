@@ -6,21 +6,7 @@
     <title>Revenue Officer Dashboard - AgriClaim</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dashboard-styles.css">
-    <style>
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(67, 233, 123, 0.15);
-            border: 1px solid rgba(67, 233, 123, 0.3);
-            border-radius: 50px;
-            color: #43e97b;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="revenue-officer-styles.css">
 </head>
 <body>
     <div class="background-animation">
@@ -30,14 +16,14 @@
 
     <nav class="navbar">
         <div class="container nav-container">
-            <div class="logo" onclick="window.location.href='index.html'">
+            <div class="logo" onclick="window.location.href='attached_assets/index.html'">
                 <span class="logo-icon">🌾</span>
                 <span class="logo-text">AgriClaim</span>
             </div>
             <div class="nav-links">
-                <a href="#approvals" class="nav-link">Approvals</a>
-                <a href="#calculations" class="nav-link">Calculations</a>
-                <a href="#disbursements" class="nav-link">Disbursements</a>
+                <a href="#processing" class="nav-link">Processing</a>
+                <a href="#approved" class="nav-link">Approved</a>
+                <a href="#reports" class="nav-link">Reports</a>
             </div>
             <div class="nav-buttons">
                 <button class="btn btn-outline" onclick="logout()">Logout</button>
@@ -56,77 +42,246 @@
                 <p class="dashboard-subtitle" id="officialName">Welcome back, Revenue Officer!</p>
             </div>
 
-            <div class="user-info-card">
-                <h3 class="info-title">Your Role & Responsibilities</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Role</div>
-                        <div class="info-value">Revenue Processing</div>
+            <div class="stats-overview">
+                <div class="stat-card stat-pending">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalPending">0</div>
+                        <div class="stat-label">Pending Review</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Access Level</div>
-                        <div class="info-value">Level 4</div>
+                    <div class="stat-glow"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="pendingProgress"></div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Department</div>
-                        <div class="info-value">Financial Operations</div>
+                </div>
+                <div class="stat-card stat-approved">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalApproved">0</div>
+                        <div class="stat-label">Approved Today</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Login Time</div>
-                        <div class="info-value" id="loginTime">-</div>
+                    <div class="stat-glow"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="approvedProgress"></div>
+                    </div>
+                </div>
+                <div class="stat-card stat-rejected">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalRejected">0</div>
+                        <div class="stat-label">Rejected</div>
+                    </div>
+                    <div class="stat-glow"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="rejectedProgress"></div>
+                    </div>
+                </div>
+                <div class="stat-card stat-forwarded">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalForwarded">₹0</div>
+                        <div class="stat-label">Total Forwarded</div>
+                    </div>
+                    <div class="stat-glow"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="forwardedProgress"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="claims-section">
+            <div class="filter-section">
+                <div class="filter-header">
+                    <h2 class="section-title-filter">Filter Claims</h2>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select id="filterStatus" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="Field Inspection Complete" selected>Pending Review</option>
+                            <option value="Approved by Revenue">Approved</option>
+                            <option value="Rejected by Revenue">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Crop Type</label>
+                        <select id="filterCrop" class="filter-select">
+                            <option value="">All Crops</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Loss Cause</label>
+                        <select id="filterCause" class="filter-select">
+                            <option value="">All Causes</option>
+                            <option value="Drought">Drought</option>
+                            <option value="Flood">Flood</option>
+                            <option value="Pest Attack">Pest Attack</option>
+                            <option value="Disease">Disease</option>
+                            <option value="Storm/Hail">Storm/Hail</option>
+                            <option value="Fire">Fire</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" id="filterSearch" class="filter-input" placeholder="Search by farmer name or claim ID...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="claims-section" id="processing">
                 <div class="section-header-flex">
-                    <h2 class="section-title-dash">Claims for Processing</h2>
-                    <div class="claims-stats">
-                        <div class="stat-badge pending-badge">
-                            <span class="stat-value">15</span>
-                            <span class="stat-label">Pending</span>
-                        </div>
-                        <div class="stat-badge approved-badge">
-                            <span class="stat-value">₹2.4M</span>
-                            <span class="stat-label">Processed</span>
-                        </div>
+                    <h2 class="section-title-dash">Claims for Revenue Processing</h2>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="grid" onclick="switchView('grid')">
+                            <span>📊</span> Grid
+                        </button>
+                        <button class="view-btn" data-view="list" onclick="switchView('list')">
+                            <span>📋</span> List
+                        </button>
                     </div>
                 </div>
 
-                <div class="claims-table-container">
-                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
-                        Revenue Officer dashboard content will be implemented here. This page shows claims for financial processing.
-                    </p>
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner-large"></div>
+                    <p>Loading claims from Google Sheets...</p>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h3>No Claims Found</h3>
+                    <p>No claims are currently pending revenue processing.</p>
+                </div>
+
+                <div class="claims-grid" id="claimsGrid">
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script>
-        function logout() {
-            localStorage.removeItem('officialData');
-            window.location.href = 'official_login.html';
-        }
-
-        window.addEventListener('DOMContentLoaded', function() {
-            const officialData = localStorage.getItem('officialData');
-            if (!officialData) {
-                window.location.href = 'official_login.html';
-                return;
-            }
-
-            try {
-                const data = JSON.parse(officialData);
-                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
+    <div class="modal-overlay" id="processModal">
+        <div class="modal-container modal-process">
+            <div class="modal-header">
+                <h2 class="modal-title">Process Claim - Revenue Assessment</h2>
+                <button class="modal-close" onclick="closeProcessModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="process-claim-info" id="processClaimInfo">
+                </div>
                 
-                const loginTime = new Date(data.loginTime);
-                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
-            } catch (e) {
-                console.error('Error parsing official data:', e);
-                window.location.href = 'official_login.html';
-            }
-        });
-    </script>
+                <form id="processForm">
+                    <div class="form-group">
+                        <label class="form-label">Estimated Compensation Amount *</label>
+                        <div class="compensation-input-wrapper">
+                            <div class="currency-prefix">₹</div>
+                            <input 
+                                type="number" 
+                                id="compensationAmount" 
+                                class="form-input compensation-input" 
+                                placeholder="0"
+                                min="0"
+                                step="1000"
+                                required
+                            >
+                        </div>
+                        <div class="slider-container">
+                            <input 
+                                type="range" 
+                                id="compensationSlider" 
+                                class="compensation-slider" 
+                                min="0" 
+                                max="500000" 
+                                value="0"
+                                step="5000"
+                            >
+                            <div class="slider-labels">
+                                <span>₹0</span>
+                                <span>₹2.5L</span>
+                                <span>₹5L</span>
+                            </div>
+                        </div>
+                        <div class="form-hint">Use the slider or type the amount directly</div>
+                        <div class="error-message" id="compensationAmountError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Revenue Officer Remarks</label>
+                        <textarea 
+                            id="revenueRemarks" 
+                            class="form-input revenue-textarea" 
+                            rows="4" 
+                            placeholder="Add any remarks, notes, or justification for the compensation amount..."
+                        ></textarea>
+                        <div class="form-hint">Optional: Add context for your assessment</div>
+                    </div>
+
+                    <div class="action-buttons-modal">
+                        <button type="button" class="btn-modal btn-approve-modal" onclick="approveAndForward()">
+                            <span class="btn-icon">✓</span>
+                            <span class="btn-text">Approve & Forward to Treasury</span>
+                            <div class="spinner"></div>
+                        </button>
+                        <button type="button" class="btn-modal btn-reject-modal" onclick="openRejectConfirmation()">
+                            <span class="btn-icon">✗</span>
+                            <span class="btn-text">Reject Claim</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rejectModal">
+        <div class="modal-container modal-reject">
+            <div class="modal-header">
+                <h2 class="modal-title">Reject Claim - Confirmation</h2>
+                <button class="modal-close" onclick="closeRejectModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="reject-warning">
+                    <div class="warning-icon">⚠️</div>
+                    <p>You are about to reject this claim. This action will notify the farmer and cannot be undone.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Reason for Rejection *</label>
+                    <textarea 
+                        id="rejectionReason" 
+                        class="form-input rejection-textarea" 
+                        rows="4" 
+                        placeholder="Please provide a detailed reason for rejecting this claim..."
+                        required
+                    ></textarea>
+                    <div class="error-message" id="rejectionReasonError"></div>
+                </div>
+
+                <div class="action-buttons-modal">
+                    <button type="button" class="btn-modal btn-cancel" onclick="closeRejectModal()">
+                        <span class="btn-text">Cancel</span>
+                    </button>
+                    <button type="button" class="btn-modal btn-confirm-reject" onclick="confirmReject()">
+                        <span class="btn-icon">✗</span>
+                        <span class="btn-text">Confirm Rejection</span>
+                        <div class="spinner"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal-container modal-details">
+            <div class="modal-header">
+                <h2 class="modal-title">Claim Details</h2>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="revenue_officer.js"></script>
 </body>
 </html>
