@@ -6,21 +6,7 @@
     <title>Field Officer Dashboard - AgriClaim</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dashboard-styles.css">
-    <style>
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(240, 147, 251, 0.15);
-            border: 1px solid rgba(240, 147, 251, 0.3);
-            border-radius: 50px;
-            color: #f093fb;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="field-officer-styles.css">
 </head>
 <body>
     <div class="background-animation">
@@ -36,7 +22,7 @@
             </div>
             <div class="nav-links">
                 <a href="#inspections" class="nav-link">Field Inspections</a>
-                <a href="#schedule" class="nav-link">Schedule</a>
+                <a href="#completed" class="nav-link">Completed</a>
                 <a href="#reports" class="nav-link">Reports</a>
             </div>
             <div class="nav-buttons">
@@ -56,77 +42,247 @@
                 <p class="dashboard-subtitle" id="officialName">Welcome back, Field Officer!</p>
             </div>
 
-            <div class="user-info-card">
-                <h3 class="info-title">Your Role & Responsibilities</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Role</div>
-                        <div class="info-value">Field Inspector</div>
+            <div class="stats-overview">
+                <div class="stat-card stat-pending">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalPending">0</div>
+                        <div class="stat-label">Pending Inspection</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Access Level</div>
-                        <div class="info-value">Level 3</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-inspected">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalInspected">0</div>
+                        <div class="stat-label">Inspected Today</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Department</div>
-                        <div class="info-value">Field Operations</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-forwarded">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalForwarded">0</div>
+                        <div class="stat-label">Forwarded</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Login Time</div>
-                        <div class="info-value" id="loginTime">-</div>
+                    <div class="stat-glow"></div>
+                </div>
+                <div class="stat-card stat-rejected">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalRejected">0</div>
+                        <div class="stat-label">Rejected</div>
+                    </div>
+                    <div class="stat-glow"></div>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-header">
+                    <h2 class="section-title-filter">Filter Claims</h2>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select id="filterStatus" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="Approved" selected>Approved (Pending Inspection)</option>
+                            <option value="Field Inspection Complete">Field Inspection Complete</option>
+                            <option value="Forwarded to Revenue Officer">Forwarded to Revenue</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Crop Type</label>
+                        <select id="filterCrop" class="filter-select">
+                            <option value="">All Crops</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Loss Cause</label>
+                        <select id="filterCause" class="filter-select">
+                            <option value="">All Causes</option>
+                            <option value="Drought">Drought</option>
+                            <option value="Flood">Flood</option>
+                            <option value="Pest Attack">Pest Attack</option>
+                            <option value="Disease">Disease</option>
+                            <option value="Storm/Hail">Storm/Hail</option>
+                            <option value="Fire">Fire</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" id="filterSearch" class="filter-input" placeholder="Search by farmer name or claim ID...">
                     </div>
                 </div>
             </div>
 
-            <div class="claims-section">
+            <div class="claims-section" id="inspections">
                 <div class="section-header-flex">
-                    <h2 class="section-title-dash">Scheduled Inspections</h2>
-                    <div class="claims-stats">
-                        <div class="stat-badge pending-badge">
-                            <span class="stat-value">8</span>
-                            <span class="stat-label">Today</span>
-                        </div>
-                        <div class="stat-badge approved-badge">
-                            <span class="stat-value">23</span>
-                            <span class="stat-label">Completed</span>
-                        </div>
+                    <h2 class="section-title-dash">Approved Claims for Field Inspection</h2>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="grid" onclick="switchView('grid')">
+                            <span>📊</span> Grid
+                        </button>
+                        <button class="view-btn" data-view="list" onclick="switchView('list')">
+                            <span>📋</span> List
+                        </button>
                     </div>
                 </div>
 
-                <div class="claims-table-container">
-                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
-                        Field Officer dashboard content will be implemented here. This page shows scheduled field inspections.
-                    </p>
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner-large"></div>
+                    <p>Loading approved claims from Google Sheets...</p>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h3>No Claims Found</h3>
+                    <p>No approved claims are pending field inspection at the moment.</p>
+                </div>
+
+                <div class="claims-grid" id="claimsGrid">
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script>
-        function logout() {
-            localStorage.removeItem('officialData');
-            window.location.href = 'official_login.html';
-        }
-
-        window.addEventListener('DOMContentLoaded', function() {
-            const officialData = localStorage.getItem('officialData');
-            if (!officialData) {
-                window.location.href = 'official_login.html';
-                return;
-            }
-
-            try {
-                const data = JSON.parse(officialData);
-                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
+    <div class="modal-overlay" id="inspectionModal">
+        <div class="modal-container modal-inspection">
+            <div class="modal-header">
+                <h2 class="modal-title">Field Inspection Report</h2>
+                <button class="modal-close" onclick="closeInspectionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="inspection-claim-info" id="inspectionClaimInfo">
+                </div>
                 
-                const loginTime = new Date(data.loginTime);
-                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
-            } catch (e) {
-                console.error('Error parsing official data:', e);
-                window.location.href = 'official_login.html';
-            }
-        });
-    </script>
+                <form id="inspectionForm">
+                    <div class="form-group">
+                        <label class="form-label">Field Inspection Notes *</label>
+                        <textarea 
+                            id="inspectionNotes" 
+                            class="form-input inspection-textarea" 
+                            rows="6" 
+                            placeholder="Describe your field inspection findings, damage assessment, crop condition, farmer cooperation, etc..."
+                            required
+                        ></textarea>
+                        <div class="error-message" id="inspectionNotesError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Damage Verification (%)</label>
+                        <div class="range-container">
+                            <input 
+                                type="range" 
+                                id="verifiedDamage" 
+                                class="form-range" 
+                                min="0" 
+                                max="100" 
+                                value="50"
+                            >
+                            <span class="range-value" id="verifiedDamageValue">50%</span>
+                        </div>
+                        <p class="form-hint">Original claim: <span id="originalDamage">-</span>%</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Field Inspection Photos</label>
+                        <div class="file-upload-container inspection-upload">
+                            <input 
+                                type="file" 
+                                id="inspectionPhotos" 
+                                class="file-input" 
+                                multiple 
+                                accept="image/*"
+                            >
+                            <label for="inspectionPhotos" class="file-upload-label">
+                                <span class="upload-icon">📸</span>
+                                <span class="upload-text">Upload Field Photos</span>
+                                <span class="upload-hint">Click to select photos from your device</span>
+                            </label>
+                        </div>
+                        <div id="photoPreview" class="photo-preview"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Recommendation</label>
+                        <select id="inspectionRecommendation" class="form-input">
+                            <option value="approve">Approve & Forward to Revenue Officer</option>
+                            <option value="partial">Partial Approval (Adjusted Damage %)</option>
+                            <option value="reject">Reject Claim</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeInspectionModal()">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="submitInspectionBtn">
+                            <span class="btn-text">Submit Report & Forward</span>
+                            <div class="spinner"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rejectModal">
+        <div class="modal-container modal-confirmation">
+            <div class="modal-header">
+                <h2 class="modal-title">Reject Claim</h2>
+                <button class="modal-close" onclick="closeRejectModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirmation-content">
+                    <div class="confirmation-icon reject-icon">❌</div>
+                    <p class="confirmation-message">
+                        Are you sure you want to reject this claim?
+                    </p>
+                    <div class="claim-summary" id="rejectClaimSummary"></div>
+                    <div class="form-group">
+                        <label class="form-label">Rejection Reason *</label>
+                        <textarea 
+                            id="rejectionReason" 
+                            class="form-input" 
+                            rows="4" 
+                            placeholder="Provide detailed reason for rejection..."
+                            required
+                        ></textarea>
+                        <div class="error-message" id="rejectionReasonError"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeRejectModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmRejectBtn" onclick="confirmReject()">
+                    <span class="btn-text">Confirm Rejection</span>
+                    <div class="spinner"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal-container modal-details">
+            <div class="modal-header">
+                <h2 class="modal-title">Claim Details</h2>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="floating-action-btn" id="quickStatsBtn" onclick="toggleQuickStats()">
+        <span class="fab-icon">📊</span>
+        <span class="fab-text">Quick Stats</span>
+    </button>
+
+    <script src="script.js"></script>
+    <script src="field_officer.js"></script>
 </body>
 </html>
