@@ -42,38 +42,64 @@
                 <p class="dashboard-subtitle" id="officialName">Welcome back, Field Officer!</p>
             </div>
 
+            <div class="user-info-card">
+                <h3 class="info-title">Your Role & Responsibilities</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Role</div>
+                        <div class="info-value">Field Inspections</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Access Level</div>
+                        <div class="info-value">Level 3</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Department</div>
+                        <div class="info-value">Field Operations</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Login Time</div>
+                        <div class="info-value" id="loginTime">-</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="stats-overview">
-                <div class="stat-card stat-pending">
-                    <div class="stat-icon">📋</div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="totalPending">0</div>
-                        <div class="stat-label">Pending Inspection</div>
+                <div class="stat-card-treasury stat-pending">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">📋</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalPending">0</div>
+                            <div class="stat-label-treasury">Pending Inspection</div>
+                        </div>
                     </div>
-                    <div class="stat-glow"></div>
                 </div>
-                <div class="stat-card stat-inspected">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="totalInspected">0</div>
-                        <div class="stat-label">Inspected Today</div>
+                <div class="stat-card-treasury stat-approved">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalInspected">0</div>
+                            <div class="stat-label-treasury">Inspected Today</div>
+                        </div>
                     </div>
-                    <div class="stat-glow"></div>
                 </div>
-                <div class="stat-card stat-forwarded">
-                    <div class="stat-icon">📤</div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="totalForwarded">0</div>
-                        <div class="stat-label">Forwarded</div>
+                <div class="stat-card-treasury stat-disbursed">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">📤</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalForwarded">0</div>
+                            <div class="stat-label-treasury">Forwarded</div>
+                        </div>
                     </div>
-                    <div class="stat-glow"></div>
                 </div>
-                <div class="stat-card stat-rejected">
-                    <div class="stat-icon">❌</div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="totalRejected">0</div>
-                        <div class="stat-label">Rejected</div>
+                <div class="stat-card-treasury">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">❌</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalRejected">0</div>
+                            <div class="stat-label-treasury">Rejected</div>
+                        </div>
                     </div>
-                    <div class="stat-glow"></div>
                 </div>
             </div>
 

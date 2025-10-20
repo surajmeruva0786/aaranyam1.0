@@ -83,30 +83,7 @@ async function loadClaims() {
     emptyState.style.display = 'none';
     claimsGrid.innerHTML = '';
     
-    try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getAllClaims`, {
-            method: 'GET'
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.claims) {
-                allClaims = result.claims.filter(c => 
-                    c.status === 'Field Inspection Complete' || 
-                    c.status === 'Forwarded to Revenue Officer' ||
-                    c.status === 'Approved by Revenue' ||
-                    c.status === 'Rejected by Revenue'
-                );
-            } else {
-                allClaims = [];
-            }
-        } else {
-            allClaims = [];
-        }
-    } catch (error) {
-        console.error('Error fetching from Google Sheets:', error);
-        allClaims = loadLocalClaims();
-    }
+    allClaims = loadLocalClaims();
     
     loadingState.style.display = 'none';
     populateCropFilter();
@@ -292,22 +269,23 @@ function formatCurrency(amount) {
 
 function updateStats() {
     const today = new Date().toDateString();
+    const allClaimsForStats = JSON.parse(localStorage.getItem('farmerClaims') || '[]');
     
     const pending = allClaims.filter(c => 
         c.status === 'Field Inspection Complete' || 
         c.status === 'Forwarded to Revenue Officer'
     ).length;
     
-    const approved = allClaims.filter(c => {
+    const approved = allClaimsForStats.filter(c => {
         const claimDate = new Date(c.timestamp || c.submittedOn).toDateString();
         return c.status === 'Approved by Revenue' && claimDate === today;
     }).length;
     
-    const rejected = allClaims.filter(c => 
+    const rejected = allClaimsForStats.filter(c => 
         c.status === 'Rejected by Revenue'
     ).length;
     
-    const totalForwarded = allClaims
+    const totalForwarded = allClaimsForStats
         .filter(c => c.status === 'Approved by Revenue' || c.status === 'Forwarded to Treasury')
         .reduce((sum, c) => sum + (parseFloat(c.estimatedCompensation) || 0), 0);
     

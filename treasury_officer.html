@@ -6,21 +6,7 @@
     <title>Treasury Officer Dashboard - AgriClaim</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dashboard-styles.css">
-    <style>
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(118, 75, 162, 0.15);
-            border: 1px solid rgba(118, 75, 162, 0.3);
-            border-radius: 50px;
-            color: #764ba2;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="treasury-officer-styles.css">
 </head>
 <body>
     <div class="background-animation">
@@ -78,55 +64,123 @@
                 </div>
             </div>
 
-            <div class="claims-section">
-                <div class="section-header-flex">
-                    <h2 class="section-title-dash">Pending Disbursements</h2>
-                    <div class="claims-stats">
-                        <div class="stat-badge pending-badge">
-                            <span class="stat-value">10</span>
-                            <span class="stat-label">Pending</span>
-                        </div>
-                        <div class="stat-badge approved-badge">
-                            <span class="stat-value">₹3.8M</span>
-                            <span class="stat-label">Disbursed</span>
+            <div class="stats-overview">
+                <div class="stat-card-treasury stat-pending">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">⏳</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalPending">0</div>
+                            <div class="stat-label-treasury">Pending Approval</div>
                         </div>
                     </div>
                 </div>
+                <div class="stat-card-treasury stat-approved">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalApproved">0</div>
+                            <div class="stat-label-treasury">Approved Today</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card-treasury stat-disbursed">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">💰</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalDisbursed">₹0</div>
+                            <div class="stat-label-treasury">Total Disbursed</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card-treasury">
+                    <div class="stat-header">
+                        <div class="stat-icon-large">❌</div>
+                        <div class="stat-content">
+                            <div class="stat-value-large" id="totalRejected">0</div>
+                            <div class="stat-label-treasury">Rejected</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <div class="claims-table-container">
-                    <p style="text-align: center; color: rgba(255, 255, 255, 0.7); padding: 40px;">
-                        Treasury Officer dashboard content will be implemented here. This page shows fund allocation and payment processing.
-                    </p>
+            <div class="filter-section">
+                <div class="filter-header">
+                    <h2 class="section-title-filter">Filter Claims</h2>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select id="filterStatus" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="Forwarded to Treasury" selected>Pending Approval</option>
+                            <option value="Payment Approved">Payment Approved</option>
+                            <option value="Rejected by Treasury">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" id="filterSearch" class="filter-input" placeholder="Search by farmer name or claim ID...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="claims-section">
+                <div class="section-header-flex">
+                    <h2 class="section-title-dash">Payment Disbursement Queue</h2>
+                </div>
+
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner-large"></div>
+                    <p>Loading claims from Google Sheets...</p>
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h3>No Claims Found</h3>
+                    <p>No claims are currently pending treasury processing.</p>
+                </div>
+
+                <div class="claims-grid" id="claimsGrid">
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="modal-overlay" id="approvalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Approve Payment</h2>
+                <button class="modal-close" onclick="closeApprovalModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="approvalModalBody">
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rejectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Reject Payment</h2>
+                <button class="modal-close" onclick="closeRejectModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="rejectModalBody">
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Claim Full History</h2>
+                <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="historyModalBody">
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
-    <script>
-        function logout() {
-            localStorage.removeItem('officialData');
-            window.location.href = 'official_login.html';
-        }
-
-        window.addEventListener('DOMContentLoaded', function() {
-            const officialData = localStorage.getItem('officialData');
-            if (!officialData) {
-                window.location.href = 'official_login.html';
-                return;
-            }
-
-            try {
-                const data = JSON.parse(officialData);
-                document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
-                
-                const loginTime = new Date(data.loginTime);
-                document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
-            } catch (e) {
-                console.error('Error parsing official data:', e);
-                window.location.href = 'official_login.html';
-            }
-        });
-    </script>
+    <script src="treasury_officer.js"></script>
 </body>
 </html>

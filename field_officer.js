@@ -29,6 +29,9 @@ window.addEventListener('DOMContentLoaded', function() {
         
         document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
         
+        const loginTime = new Date(data.loginTime);
+        document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
+        
         initializeFilters();
         initializePhotoUpload();
         initializeDamageSlider();
@@ -79,29 +82,7 @@ async function loadClaims() {
     emptyState.style.display = 'none';
     claimsGrid.innerHTML = '';
     
-    try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getAllClaims`, {
-            method: 'GET'
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.claims) {
-                // Only show claims approved by verifier that haven't been inspected yet
-                allClaims = result.claims.filter(c => 
-                    c.status === 'Approved' || 
-                    c.status === 'Forwarded to Field Officer'
-                );
-            } else {
-                allClaims = [];
-            }
-        } else {
-            allClaims = [];
-        }
-    } catch (error) {
-        console.error('Error fetching from Google Sheets:', error);
-        allClaims = loadLocalClaims();
-    }
+    allClaims = loadLocalClaims();
     
     loadingState.style.display = 'none';
     populateCropFilter();
@@ -286,29 +267,15 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-async function updateStats() {
-    // For stats, we need to fetch all claims to show completed inspections
-    let allClaimsForStats = [];
+function updateStats() {
+    const allClaimsForStats = JSON.parse(localStorage.getItem('farmerClaims') || '[]');
     
-    try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getAllClaims`, {
-            method: 'GET'
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.claims) {
-                allClaimsForStats = result.claims;
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching stats:', error);
-        allClaimsForStats = JSON.parse(localStorage.getItem('farmerClaims') || '[]');
-    }
-    
-    // Calculate stats from all claims
-    const pending = allClaims.length; // Currently loaded pending claims
-    const inspected = allClaimsForStats.filter(c => c.status === 'Field Inspection Complete').length;
+    const pending = allClaims.length;
+    const today = new Date().toDateString();
+    const inspected = allClaimsForStats.filter(c => {
+        const claimDate = new Date(c.inspectionDate || c.timestamp).toDateString();
+        return c.status === 'Field Inspection Complete' && claimDate === today;
+    }).length;
     const forwarded = allClaimsForStats.filter(c => c.status === 'Forwarded to Revenue Officer').length;
     const rejected = allClaimsForStats.filter(c => c.status === 'Rejected' && c.rejectedBy === 'Field Officer').length;
     
@@ -539,7 +506,12 @@ function updateLocalClaim(claimId, inspectionReport, newStatus) {
     const claimIndex = claims.findIndex(c => c.claimId === claimId);
     
     if (claimIndex !== -1) {
-        claims[claimIndex].fieldInspectionReport = inspectionReport;
+        claims[claimIndex].fieldInspectionReport = inspectionReport.inspectionNotes;
+        claims[claimIndex].verifiedDamage = inspectionReport.verifiedDamage;
+        claims[claimIndex].inspectionPhotos = inspectionReport.inspectionPhotos;
+        claims[claimIndex].inspectorName = inspectionReport.inspectorName;
+        claims[claimIndex].inspectionDate = inspectionReport.inspectionDate;
+        claims[claimIndex].fieldInspectionDate = inspectionReport.inspectionDate;
         claims[claimIndex].status = newStatus;
         localStorage.setItem('farmerClaims', JSON.stringify(claims));
     }
