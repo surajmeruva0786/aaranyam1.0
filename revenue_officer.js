@@ -7,14 +7,14 @@ let currentClaim = null;
 
 function logout() {
     localStorage.removeItem('officialData');
-    window.location.href = 'attached_assets/official_login.html';
+    window.location.href = 'official_login.html';
 }
 
 window.addEventListener('DOMContentLoaded', function() {
     const officialData = localStorage.getItem('officialData');
     
     if (!officialData) {
-        window.location.href = 'attached_assets/official_login.html';
+        window.location.href = 'official_login.html';
         return;
     }
 
@@ -22,7 +22,7 @@ window.addEventListener('DOMContentLoaded', function() {
         const data = JSON.parse(officialData);
         if (data.role !== 'revenue_officer') {
             alert('Access Denied: This dashboard is only for revenue officers.');
-            window.location.href = 'attached_assets/official_login.html';
+            window.location.href = 'official_login.html';
             return;
         }
         
@@ -33,7 +33,7 @@ window.addEventListener('DOMContentLoaded', function() {
         loadClaims();
     } catch (e) {
         console.error('Error parsing official data:', e);
-        window.location.href = 'attached_assets/official_login.html';
+        window.location.href = 'official_login.html';
     }
 });
 
@@ -408,7 +408,8 @@ async function approveAndForward() {
     try {
         const updateData = {
             claimId: currentClaim.claimId,
-            status: 'Approved by Revenue',
+            status: 'Forwarded to Treasury',
+            estimatedLoss: parseFloat(amount),
             estimatedCompensation: parseFloat(amount),
             revenueRemarks: remarks,
             revenueOfficer: JSON.parse(localStorage.getItem('officialData')).username,
