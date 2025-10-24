@@ -856,3 +856,209 @@ body {
         font-size: 24px;
     }
 }
+
+/* Firebase Loading Animation Styles */
+.firebase-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #43e97b 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 3s ease infinite;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.firebase-loading-container {
+    text-align: center;
+    color: white;
+    max-width: 400px;
+    padding: 2rem;
+    position: relative;
+}
+
+.firebase-loading-spinner {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 2rem;
+}
+
+.spinner-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 4px solid transparent;
+    border-radius: 50%;
+    animation: spin 2s linear infinite;
+}
+
+.spinner-ring:nth-child(1) {
+    border-top: 4px solid #43e97b;
+    border-right: 4px solid #43e97b;
+    box-shadow: 0 0 20px rgba(67, 233, 123, 0.5);
+}
+
+.spinner-ring:nth-child(2) {
+    width: 70px;
+    height: 70px;
+    top: 15px;
+    left: 15px;
+    border-top: 3px solid #38f9d7;
+    border-left: 3px solid #38f9d7;
+    animation-duration: 1.5s;
+    animation-direction: reverse;
+    box-shadow: 0 0 15px rgba(56, 249, 215, 0.4);
+}
+
+.spinner-ring:nth-child(3) {
+    width: 40px;
+    height: 40px;
+    top: 30px;
+    left: 30px;
+    border-top: 2px solid #4facfe;
+    border-bottom: 2px solid #4facfe;
+    animation-duration: 1s;
+    box-shadow: 0 0 10px rgba(79, 172, 254, 0.3);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.firebase-loading-text h3 {
+    font-size: 1.8rem;
+    margin: 0 0 0.5rem 0;
+    font-weight: 700;
+    background: linear-gradient(45deg, #43e97b, #38f9d7, #4facfe);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: textGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes textGlow {
+    0% { filter: brightness(1); }
+    100% { filter: brightness(1.2); }
+}
+
+.firebase-loading-text p {
+    font-size: 1.1rem;
+    margin: 0 0 2rem 0;
+    opacity: 0.9;
+    animation: fadeInOut 2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+.firebase-loading-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #43e97b, #38f9d7, #4facfe, #43e97b);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    animation: progressFlow 2s ease-in-out infinite;
+    box-shadow: 0 0 10px rgba(67, 233, 123, 0.5);
+}
+
+@keyframes progressFlow {
+    0% { 
+        width: 0%; 
+        background-position: 0% 50%;
+    }
+    50% { 
+        width: 70%; 
+        background-position: 100% 50%;
+    }
+    100% { 
+        width: 100%; 
+        background-position: 0% 50%;
+    }
+}
+
+.firebase-loading-container {
+    animation: containerFloat 3s ease-in-out infinite;
+}
+
+@keyframes containerFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Floating particles for extra magic */
+.firebase-loading-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 20%, rgba(67, 233, 123, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(56, 249, 215, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(79, 172, 254, 0.3) 0%, transparent 50%);
+    animation: particleFloat 4s ease-in-out infinite;
+}
+
+@keyframes particleFloat {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* Responsive design for loading animation */
+@media (max-width: 768px) {
+    .firebase-loading-container {
+        max-width: 300px;
+        padding: 1.5rem;
+    }
+    
+    .firebase-loading-spinner {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .spinner-ring:nth-child(2) {
+        width: 60px;
+        height: 60px;
+        top: 10px;
+        left: 10px;
+    }
+    
+    .spinner-ring:nth-child(3) {
+        width: 30px;
+        height: 30px;
+        top: 25px;
+        left: 25px;
+    }
+    
+    .firebase-loading-text h3 {
+        font-size: 1.5rem;
+    }
+    
+    .firebase-loading-text p {
+        font-size: 1rem;
+    }
+}

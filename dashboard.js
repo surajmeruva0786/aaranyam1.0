@@ -1,37 +1,381 @@
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1ZyN4jaRJchiZo1ctcrZQ_F4WY1CSf4MlVfrLm3Ahp71Lf3oTWj_3THceUPW/exec';
-
 let uploadedFiles = [];
 let currentFarmer = null;
 
-function logout() {
-    localStorage.removeItem('farmerData');
+// Firebase Auth Protection for Dashboard
+async function checkAuthAndLoadUser() {
+    try {
+        console.log('Starting auth check...');
+        
+        // Wait for Firebase to be ready
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                console.log('Firebase is already ready');
+                resolve();
+            } else {
+                console.log('Waiting for Firebase to be ready...');
+                window.addEventListener('firebaseReady', resolve);
+            }
+        });
+
+        const { auth, db } = window.firebaseServices;
+        console.log('Firebase services loaded:', { auth, db });
+        
+        // Verify Firebase services are properly initialized
+        if (!auth) {
+            throw new Error('Firebase Auth service not available');
+        }
+        if (!db) {
+            throw new Error('Firebase Firestore service not available');
+        }
+        
+        // Check current user first
+        const currentUser = auth.currentUser;
+        console.log('Current user:', currentUser);
+        
+        if (currentUser) {
+            console.log('User already authenticated, loading data immediately');
+            await loadUserData(currentUser, db);
+        } else {
+            console.log('No current user, setting up auth state listener');
+        }
+        
+        // Set up auth state listener
+        auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state changed:', user ? user.email : 'No user');
+            
+            if (user) {
+                console.log('User authenticated via listener, loading data...');
+                await loadUserData(user, db);
+            } else {
+                console.log('User not authenticated, redirecting to login');
     window.location.href = 'farmer-login.html';
 }
-
-window.addEventListener('DOMContentLoaded', function() {
-    const farmerData = localStorage.getItem('farmerData');
-    
-    if (!farmerData) {
-        window.location.href = 'farmer-login.html';
-        return;
-    }
-
-    try {
-        currentFarmer = JSON.parse(farmerData);
-        document.getElementById('farmerName').textContent = `Welcome, ${currentFarmer.fullName}!`;
-        document.getElementById('infoName').textContent = currentFarmer.fullName || '-';
-        document.getElementById('infoContact').textContent = currentFarmer.contactNumber || '-';
-        document.getElementById('infoAadhar').textContent = currentFarmer.aadharId ? `****-****-${currentFarmer.aadharId.slice(-4)}` : '-';
-        document.getElementById('infoLand').textContent = currentFarmer.landArea ? `${currentFarmer.landArea} acres` : '-';
-        document.getElementById('infoLandType').textContent = currentFarmer.landType || '-';
-        document.getElementById('infoAddress').textContent = currentFarmer.address || '-';
+        });
         
-        loadClaims();
-    } catch (e) {
-        console.error('Error parsing farmer data:', e);
+    } catch (error) {
+        console.error('Auth check error:', error);
         window.location.href = 'farmer-login.html';
     }
-});
+}
+
+// Separate function to load user data
+async function loadUserData(user, db) {
+    try {
+        console.log('Loading user profile from Firestore for UID:', user.uid);
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            console.log('User data loaded from Firestore:', userData);
+            currentFarmer = userData;
+            
+            // Check if DOM elements exist
+            const farmerNameEl = document.getElementById('farmerName');
+            const infoNameEl = document.getElementById('infoName');
+            const infoEmailEl = document.getElementById('infoEmail');
+            
+            console.log('DOM elements found:', {
+                farmerName: !!farmerNameEl,
+                infoName: !!infoNameEl,
+                infoEmail: !!infoEmailEl
+            });
+            
+            if (!farmerNameEl || !infoNameEl || !infoEmailEl) {
+                console.error('Required DOM elements not found!');
+                return;
+            }
+            
+            // Update dashboard with user data
+            farmerNameEl.textContent = `Welcome, ${userData.name}!`;
+            infoNameEl.textContent = userData.name || '-';
+            infoEmailEl.textContent = userData.email || '-';
+            document.getElementById('infoContact').textContent = userData.contactNumber || '-';
+            document.getElementById('infoAadhar').textContent = userData.aadharId ? `****-****-${userData.aadharId.slice(-4)}` : '-';
+            document.getElementById('infoLand').textContent = userData.landArea ? `${userData.landArea} acres` : '-';
+            document.getElementById('infoLandType').textContent = userData.landType || '-';
+            document.getElementById('infoAddress').textContent = userData.address || '-';
+            
+            // Add registration date if available
+            if (userData.createdAt) {
+                const regDate = new Date(userData.createdAt.seconds * 1000).toLocaleDateString();
+                document.getElementById('infoRegDate').textContent = regDate;
+                console.log('Registration date:', regDate);
+            } else {
+                document.getElementById('infoRegDate').textContent = 'Not available';
+            }
+            
+            console.log('Dashboard updated successfully!');
+        loadClaims();
+        } else {
+            console.error('User profile not found in Firestore');
+            window.location.href = 'farmer-login.html';
+        }
+    } catch (error) {
+        console.error('Error loading user profile:', error);
+        window.location.href = 'farmer-login.html';
+    }
+}
+
+// Initialize dashboard when DOM is ready
+window.addEventListener('DOMContentLoaded', checkAuthAndLoadUser);
+
+// Immediate fallback - try to load data right away
+setTimeout(async () => {
+    console.log('Immediate fallback: Attempting to load user data...');
+    try {
+        if (window.firebaseServices && window.firebaseServices.auth) {
+            const user = window.firebaseServices.auth.currentUser;
+            if (user) {
+                console.log('Fallback: Found authenticated user, loading data...');
+                await loadUserData(user, window.firebaseServices.db);
+            } else {
+                console.log('Fallback: No authenticated user found');
+            }
+        }
+    } catch (error) {
+        console.error('Fallback error:', error);
+    }
+}, 1000);
+
+// Additional fallback mechanism - check auth after a delay if data hasn't loaded
+setTimeout(() => {
+    const farmerName = document.getElementById('farmerName');
+    if (farmerName && farmerName.textContent === 'Loading your profile...') {
+        console.log('Secondary fallback: Data not loaded, checking auth again...');
+        checkAuthAndLoadUser();
+    }
+}, 5000);
+
+// Manual data loading function for debugging
+window.manualLoadUserData = async function() {
+    console.log('Manual data loading triggered');
+    try {
+        if (window.firebaseServices && window.firebaseServices.auth) {
+            const user = window.firebaseServices.auth.currentUser;
+            if (user) {
+                console.log('Current user found:', user.email);
+                await loadUserData(user, window.firebaseServices.db);
+            } else {
+                console.log('No current user found');
+            }
+        } else {
+            console.log('Firebase services not available');
+        }
+    } catch (error) {
+        console.error('Manual load error:', error);
+    }
+};
+
+// Claim Submission Functions - Base64 File Storage (Free Plan)
+async function convertFilesToBase64(files) {
+    const fileData = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Update progress
+        const progress = ((i + 1) / files.length) * 100;
+        updateUploadProgress(progress, i + 1, files.length);
+        
+        // Validate file object - handle both File objects and objects with Base64 data
+        if (!file) {
+            console.error('No file provided at index:', i);
+            throw new Error(`No file provided at index ${i}`);
+        }
+        
+        // Check if it's already a Base64 string (from previous conversion)
+        if (file.data && typeof file.data === 'string' && file.data.startsWith('data:')) {
+            console.log('File already converted to Base64, using existing data:', file.name);
+            fileData.push({
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size,
+                base64Data: file.data,
+                uploadedAt: new Date().toISOString()
+            });
+            continue; // Skip FileReader processing
+        }
+        
+        // Validate it's a proper File object for FileReader
+        if (!(file instanceof File)) {
+            console.error('Invalid file object (not a File instance):', file);
+            throw new Error(`Invalid file object at index ${i} - expected File object`);
+        }
+        
+        // Convert file to Base64
+        const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (error) => {
+                console.error('FileReader error:', error);
+                reject(new Error(`Failed to read file: ${file.name}`));
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        fileData.push({
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            base64Data: base64Data,
+            uploadedAt: new Date().toISOString()
+        });
+        
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    return fileData;
+}
+
+function updateUploadProgress(progress, currentFile, totalFiles) {
+    const progressBar = document.getElementById('uploadProgress');
+    const progressText = document.getElementById('uploadProgressText');
+    
+    if (progressBar && progressText) {
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `Processing file ${currentFile} of ${totalFiles}... ${Math.round(progress)}%`;
+    }
+}
+
+async function submitClaimToFirestore(claimData, fileData) {
+    try {
+        console.log('submitClaimToFirestore called with:', { claimData, fileData });
+        
+        const { db, auth } = window.firebaseServices;
+        console.log('Firebase services in submitClaimToFirestore:', { db, auth });
+        
+        const user = auth.currentUser;
+        console.log('User in submitClaimToFirestore:', user);
+        
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+        
+        const claimDoc = {
+            farmerID: user.uid,
+            farmerEmail: user.email,
+            cropType: claimData.cropType,
+            lossDate: claimData.lossDate,
+            lossCause: claimData.lossCause,
+            damageExtent: parseInt(claimData.damageExtent),
+            description: claimData.description,
+            // Store Base64 data directly in Firestore
+            images: fileData.filter(file => file.fileType.startsWith('image/')).map(file => ({
+                fileName: file.fileName,
+                fileType: file.fileType,
+                fileSize: file.fileSize,
+                base64Data: file.base64Data,
+                uploadedAt: file.uploadedAt
+            })),
+            documents: fileData.filter(file => !file.fileType.startsWith('image/')).map(file => ({
+                fileName: file.fileName,
+                fileType: file.fileType,
+                fileSize: file.fileSize,
+                base64Data: file.base64Data,
+                uploadedAt: file.uploadedAt
+            })),
+            status: "Submitted",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        console.log('Claim document prepared:', claimDoc);
+        console.log('Attempting to add document to Firestore...');
+        
+        const docRef = await db.collection('claims').add(claimDoc);
+        console.log('Claim submitted successfully with ID:', docRef.id);
+        
+        return docRef.id;
+        
+    } catch (error) {
+        console.error('Error in submitClaimToFirestore:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+        throw error;
+    }
+}
+
+function showClaimConfirmation(claimId) {
+    // Create beautiful confirmation popup
+    const confirmationPopup = document.createElement('div');
+    confirmationPopup.id = 'claimConfirmationPopup';
+    confirmationPopup.innerHTML = `
+        <div class="confirmation-overlay">
+            <div class="confirmation-card">
+                <div class="confirmation-icon">✅</div>
+                <h3 class="confirmation-title">Claim Submitted Successfully!</h3>
+                <p class="confirmation-message">
+                    Your claim has been submitted and is under review. 
+                    You will receive updates via email.
+                </p>
+                <div class="confirmation-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Claim ID:</span>
+                        <span class="detail-value">${claimId}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-submitted">Submitted</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary confirmation-btn" onclick="closeClaimConfirmation()">
+                    Continue
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(confirmationPopup);
+    
+    // Add slide-up animation
+    setTimeout(() => {
+        confirmationPopup.classList.add('show');
+    }, 100);
+}
+
+function closeClaimConfirmation() {
+    const popup = document.getElementById('claimConfirmationPopup');
+    if (popup) {
+        popup.classList.remove('show');
+        setTimeout(() => {
+            popup.remove();
+        }, 300);
+    }
+}
+
+// Upload Progress UI Functions
+function showUploadProgress() {
+    // Create upload progress overlay
+    const progressOverlay = document.createElement('div');
+    progressOverlay.id = 'uploadProgressOverlay';
+    progressOverlay.innerHTML = `
+        <div class="upload-progress-container">
+            <div class="upload-progress-card">
+                <div class="upload-progress-icon">📄</div>
+                <h3 class="upload-progress-title">Processing Files</h3>
+                <div class="upload-progress-bar-container">
+                    <div class="upload-progress-bar" id="uploadProgress"></div>
+                </div>
+                <p class="upload-progress-text" id="uploadProgressText">Preparing files...</p>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(progressOverlay);
+}
+
+function hideUploadProgress() {
+    const overlay = document.getElementById('uploadProgressOverlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+// Make functions globally available
+window.closeClaimConfirmation = closeClaimConfirmation;
 
 const damageExtent = document.getElementById('damageExtent');
 const damageValue = document.getElementById('damageValue');
@@ -227,33 +571,99 @@ async function handleClaimSubmit(e) {
     submitBtn.classList.add('loading');
 
     try {
+        console.log('Starting claim submission process...');
+        
+        // Check Firebase services
+        if (!window.firebaseServices) {
+            throw new Error('Firebase services not available');
+        }
+        
+        const { auth, db } = window.firebaseServices;
+        console.log('Firebase services:', { auth, db });
+        
+        // Verify services are properly initialized
+        if (!auth) {
+            throw new Error('Firebase Auth service not available');
+        }
+        if (!db) {
+            throw new Error('Firebase Firestore service not available');
+        }
+        
+        // Get current user
+        const user = auth.currentUser;
+        console.log('Current user:', user);
+        
+        if (!user) {
+            throw new Error('User not authenticated - please log in again');
+        }
+        
+        // Verify user has required properties
+        if (!user.uid || !user.email) {
+            throw new Error('User data incomplete - please log in again');
+        }
+
+        // Prepare claim data
         const claimData = {
-            claimId: generateClaimId(),
-            farmerContact: currentFarmer.contactNumber,
-            farmerName: currentFarmer.fullName,
             cropType: cropType,
             lossDate: lossDate,
             lossCause: lossCause,
             damageExtent: damageExtent,
-            description: description,
-            files: uploadedFiles,
-            status: 'Pending',
-            submittedOn: new Date().toISOString(),
-            timestamp: new Date().toISOString()
+            description: description
         };
+        console.log('Claim data prepared:', claimData);
 
-        const result = await submitClaimToGoogleSheets(claimData);
+        // Show upload progress UI
+        showUploadProgress();
 
-        if (result.success) {
-            alert('Claim submitted successfully!');
+        // Convert files to Base64 (Free Plan Alternative)
+        let fileData = [];
+        if (uploadedFiles.length > 0) {
+            console.log('Converting files to Base64...', uploadedFiles);
+            try {
+                fileData = await convertFilesToBase64(uploadedFiles);
+                console.log('Files converted successfully:', fileData);
+            } catch (fileError) {
+                console.error('File conversion error:', fileError);
+                throw new Error(`File processing failed: ${fileError.message}`);
+            }
+        } else {
+            console.log('No files to process');
+        }
+
+        // Submit claim to Firestore
+        console.log('Submitting claim to Firestore...');
+        try {
+            const claimId = await submitClaimToFirestore(claimData, fileData);
+            console.log('Claim submitted successfully with ID:', claimId);
+            
+            // Show success confirmation
+            showClaimConfirmation(claimId);
+            
+            // Close modal and refresh claims
             closeClaimModal();
             loadClaims();
-        } else {
-            alert(result.message || 'Failed to submit claim. Please try again.');
+            
+            // Clear form
+            document.getElementById('claimForm').reset();
+            uploadedFiles = [];
+            updateFilePreview();
+            
+        } catch (firestoreError) {
+            console.error('Firestore submission error:', firestoreError);
+            throw new Error(`Database error: ${firestoreError.message}`);
         }
+
     } catch (error) {
-        console.error('Error submitting claim:', error);
-        alert('An error occurred. Please try again.');
+        console.error('Complete error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        hideUploadProgress();
+        
+        // Show specific error message
+        const errorMessage = error.message || 'An unknown error occurred';
+        alert(`Error: ${errorMessage}. Please check the console for details.`);
     } finally {
         submitBtn.disabled = false;
         submitBtn.classList.remove('loading');
@@ -306,35 +716,61 @@ function saveClaimLocally(claimData) {
 
 async function loadClaims() {
     try {
-        let claims = [];
+        console.log('Loading claims from Firestore...');
         
-        try {
-            const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getClaims&contact=${currentFarmer.contactNumber}`, {
-                method: 'GET'
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success && result.claims) {
-                    claims = result.claims;
-                }
+        // Wait for Firebase to be ready
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
             }
-        } catch (error) {
-            console.error('Error fetching from Google Sheets:', error);
-        }
+        });
 
-        const localClaims = JSON.parse(localStorage.getItem('farmerClaims') || '[]');
-        const farmerLocalClaims = localClaims.filter(c => c.farmerContact === currentFarmer.contactNumber);
+        const { db, auth } = window.firebaseServices;
+        const user = auth.currentUser;
         
-        if (claims.length === 0 && farmerLocalClaims.length > 0) {
-            claims = farmerLocalClaims;
+        if (!user) {
+            console.error('No authenticated user for loading claims');
+            return;
         }
 
+        console.log('Fetching claims for user:', user.uid);
+        
+        // Query claims from Firestore (simplified to avoid index requirement)
+        const claimsSnapshot = await db.collection('claims')
+            .where('farmerID', '==', user.uid)
+            .get();
+
+        const claims = [];
+        claimsSnapshot.forEach(doc => {
+            const claimData = doc.data();
+            claims.push({
+                id: doc.id,
+                ...claimData,
+                // Convert Firestore timestamps to readable dates
+                createdAt: claimData.createdAt ? claimData.createdAt.toDate() : new Date(),
+                updatedAt: claimData.updatedAt ? claimData.updatedAt.toDate() : new Date()
+            });
+        });
+
+        // Sort by creation date (newest first) on client side
+        claims.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+            return dateB - dateA; // Newest first
+        });
+
+        console.log('Claims loaded from Firestore:', claims);
         displayClaims(claims);
         updateStats(claims);
+        
     } catch (error) {
-        console.error('Error loading claims:', error);
+        console.error('Error loading claims from Firestore:', error);
+        
+        // Fallback to empty claims
         displayClaims([]);
+        updateStats([]);
     }
 }
 
@@ -437,6 +873,24 @@ function updateStats(claims) {
 
 function viewClaim(claimId) {
     alert(`Viewing claim ${claimId}\n\nDetailed view feature coming soon!`);
+}
+
+// Logout function
+function logout() {
+    // Use Firebase Auth logout
+    if (window.firebaseServices && window.firebaseServices.auth) {
+        window.firebaseServices.auth.signOut().then(() => {
+            console.log('User signed out successfully');
+            window.location.href = 'farmer-login.html';
+        }).catch((error) => {
+            console.error('Error signing out:', error);
+            // Fallback to direct redirect
+            window.location.href = 'farmer-login.html';
+        });
+    } else {
+        // Fallback if Firebase not available
+        window.location.href = 'farmer-login.html';
+    }
 }
 
 window.openClaimModal = openClaimModal;

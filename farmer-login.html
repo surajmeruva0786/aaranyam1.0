@@ -193,6 +193,58 @@
             color: var(--primary);
         }
 
+        /* Firebase Auth Animations */
+        .form-input:focus {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(67, 233, 123, 0.3);
+            border-color: #43e97b;
+        }
+
+        .submit-btn.success {
+            background: linear-gradient(45deg, #43e97b, #38f9d7);
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(67, 233, 123, 0.5);
+        }
+
+        .submit-btn.loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .form-input {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .form-input:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-card {
+            animation: cardFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes cardFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
         @media (max-width: 640px) {
             .auth-card {
                 padding: 32px 24px;
@@ -238,15 +290,15 @@
 
             <form id="loginForm" novalidate>
                 <div class="form-group">
-                    <label class="form-label" for="loginContact">Contact Number</label>
+                    <label class="form-label" for="loginEmail">Email Address</label>
                     <input 
-                        type="tel" 
-                        id="loginContact" 
+                        type="email" 
+                        id="loginEmail" 
                         class="form-input" 
-                        placeholder="Enter your registered mobile number"
+                        placeholder="Enter your registered email address"
                         required
                     >
-                    <div class="error-message" id="loginContactError"></div>
+                    <div class="error-message" id="loginEmailError"></div>
                 </div>
 
                 <div class="form-group">
@@ -273,6 +325,14 @@
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script src="firebase.js"></script>
+    
     <script src="script.js"></script>
     <script src="auth.js"></script>
 </body>

@@ -2,6 +2,111 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1
 
 const USE_GOOGLE_SHEETS = true;
 
+// Firebase Authentication Functions
+async function registerWithFirebase(formData) {
+    try {
+        // Wait for Firebase to be ready
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
+            }
+        });
+
+        const { auth, db } = window.firebaseServices;
+        
+        // Create user with email and password
+        const userCredential = await auth.createUserWithEmailAndPassword(formData.email, formData.password);
+        const user = userCredential.user;
+        
+        // Save profile to Firestore
+        const userProfile = {
+            name: formData.fullName,
+            email: formData.email,
+            contactNumber: formData.contactNumber,
+            aadharId: formData.aadharId,
+            address: formData.address,
+            landArea: formData.landArea,
+            landType: formData.landType,
+            role: "Farmer",
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        
+        console.log('Saving user profile to Firestore:', userProfile);
+        await db.collection("users").doc(user.uid).set(userProfile);
+        console.log('User profile saved successfully');
+        
+        return { success: true, user: user };
+    } catch (error) {
+        console.error('Firebase registration error:', error);
+        return { success: false, message: getFirebaseErrorMessage(error) };
+    }
+}
+
+async function loginWithFirebase(email, password) {
+    try {
+        console.log('Waiting for Firebase to be ready...');
+        // Wait for Firebase to be ready
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                console.log('Firebase is ready');
+                resolve();
+            } else {
+                console.log('Waiting for firebaseReady event...');
+                window.addEventListener('firebaseReady', resolve);
+            }
+        });
+
+        const { auth } = window.firebaseServices;
+        console.log('Firebase auth service:', auth);
+        
+        // Sign in with email and password
+        console.log('Attempting Firebase sign in...');
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        console.log('Firebase sign in successful:', userCredential.user);
+        return { success: true, user: userCredential.user };
+    } catch (error) {
+        console.error('Firebase login error:', error);
+        return { success: false, message: getFirebaseErrorMessage(error) };
+    }
+}
+
+function getFirebaseErrorMessage(error) {
+    switch (error.code) {
+        case 'auth/email-already-in-use':
+            return 'This email is already registered. Please use a different email.';
+        case 'auth/invalid-email':
+            return 'Please enter a valid email address.';
+        case 'auth/weak-password':
+            return 'Password should be at least 6 characters long.';
+        case 'auth/user-not-found':
+            return 'No account found with this email. Please register first.';
+        case 'auth/wrong-password':
+            return 'Incorrect password. Please try again.';
+        case 'auth/too-many-requests':
+            return 'Too many failed attempts. Please try again later.';
+        default:
+            return 'Authentication failed. Please try again.';
+    }
+}
+
+// Auth state persistence
+function setupAuthStateListener() {
+    if (window.firebaseServices && window.firebaseServices.auth) {
+        window.firebaseServices.auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log('User is signed in:', user.email);
+                // User is signed in, you can redirect to dashboard or update UI
+            } else {
+                console.log('User is signed out');
+                // User is signed out, redirect to login or update UI
+            }
+        });
+    }
+}
+
 const validators = {
     fullName: (value) => {
         if (!value || value.trim().length < 3) {
@@ -9,6 +114,17 @@ const validators = {
         }
         if (!/^[a-zA-Z\s]+$/.test(value)) {
             return 'Full name should only contain letters and spaces';
+        }
+        return '';
+    },
+
+    email: (value) => {
+        if (!value || value.trim().length === 0) {
+            return 'Email address is required';
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+            return 'Please enter a valid email address';
         }
         return '';
     },
@@ -204,7 +320,7 @@ if (document.getElementById('registerForm')) {
     const registerForm = document.getElementById('registerForm');
     const submitBtn = document.getElementById('submitBtn');
 
-    const inputs = ['fullName', 'contactNumber', 'aadharId', 'address', 'landArea', 'landType', 'password', 'confirmPassword'];
+    const inputs = ['fullName', 'email', 'contactNumber', 'aadharId', 'address', 'landArea', 'landType', 'password', 'confirmPassword'];
     inputs.forEach(fieldId => {
         const input = document.getElementById(fieldId);
         if (input) {
@@ -218,6 +334,7 @@ if (document.getElementById('registerForm')) {
 
         const formData = {
             fullName: document.getElementById('fullName').value.trim(),
+            email: document.getElementById('email').value.trim(),
             contactNumber: document.getElementById('contactNumber').value.trim(),
             aadharId: document.getElementById('aadharId').value.trim(),
             address: document.getElementById('address').value.trim(),
@@ -231,6 +348,7 @@ if (document.getElementById('registerForm')) {
 
         const validationChecks = [
             { field: 'fullName', validator: validators.fullName },
+            { field: 'email', validator: validators.email },
             { field: 'contactNumber', validator: validators.contactNumber },
             { field: 'aadharId', validator: validators.aadharId },
             { field: 'address', validator: validators.address },
@@ -256,36 +374,27 @@ if (document.getElementById('registerForm')) {
         submitBtn.classList.add('loading');
 
         try {
-            const registrationData = {
-                fullName: formData.fullName,
-                contactNumber: formData.contactNumber,
-                aadharId: formData.aadharId,
-                address: formData.address,
-                landArea: formData.landArea,
-                landType: formData.landType,
-                password: formData.password,
-                timestamp: new Date().toISOString()
-            };
-
-            const result = await sendToGoogleSheets('register', registrationData);
+            // Use Firebase Authentication
+            const result = await registerWithFirebase(formData);
 
             if (result.success) {
                 const successMsg = document.getElementById('successMessage');
-                if (result.fallback) {
-                    successMsg.textContent = 'Registration successful (using local storage)! Redirecting to login...';
-                } else {
-                    successMsg.textContent = 'Registration successful! Redirecting to login...';
-                }
+                successMsg.textContent = 'Registration successful! Redirecting to dashboard...';
                 successMsg.classList.add('show');
                 registerForm.reset();
 
+                // Add success animation
+                submitBtn.classList.add('success');
+                
                 setTimeout(() => {
-                    window.location.href = 'farmer-login.html';
+                    window.location.href = 'dashboard.html';
                 }, 2000);
             } else {
                 const errorMsg = result.message || 'Registration failed. Please try again.';
-                if (errorMsg.toLowerCase().includes('contact')) {
-                    showError('contactNumber', errorMsg);
+                if (errorMsg.toLowerCase().includes('email')) {
+                    showError('email', errorMsg);
+                } else if (errorMsg.toLowerCase().includes('password')) {
+                    showError('password', errorMsg);
                 } else {
                     showError('fullName', errorMsg);
                 }
@@ -304,7 +413,7 @@ if (document.getElementById('loginForm')) {
     const loginForm = document.getElementById('loginForm');
     const loginBtn = document.getElementById('loginBtn');
 
-    ['loginContact', 'loginPassword'].forEach(fieldId => {
+    ['loginEmail', 'loginPassword'].forEach(fieldId => {
         const input = document.getElementById(fieldId);
         if (input) {
             input.addEventListener('input', () => clearError(fieldId));
@@ -315,14 +424,14 @@ if (document.getElementById('loginForm')) {
         e.preventDefault();
         clearAllErrors();
 
-        const contactNumber = document.getElementById('loginContact').value.trim();
+        const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
 
         let hasError = false;
 
-        const contactError = validators.contactNumber(contactNumber);
-        if (contactError) {
-            showError('loginContact', contactError);
+        const emailError = validators.email(email);
+        if (emailError) {
+            showError('loginEmail', emailError);
             hasError = true;
         }
 
@@ -339,29 +448,28 @@ if (document.getElementById('loginForm')) {
         loginBtn.classList.add('loading');
 
         try {
-            const result = await verifyLogin(contactNumber, password);
+            console.log('Attempting login with:', email);
+            // Use Firebase Authentication
+            const result = await loginWithFirebase(email, password);
+            console.log('Login result:', result);
 
-            if (result.success && result.farmer) {
-                const farmerDataForStorage = {
-                    fullName: result.farmer.fullName,
-                    contactNumber: result.farmer.contactNumber,
-                    aadharId: result.farmer.aadharId,
-                    address: result.farmer.address,
-                    landArea: result.farmer.landArea,
-                    landType: result.farmer.landType,
-                    usingLocalStorage: result.fallback || false
-                };
+            if (result.success) {
+                console.log('Login successful, redirecting to dashboard');
+                // Add success animation
+                loginBtn.classList.add('success');
                 
-                localStorage.setItem('farmerData', JSON.stringify(farmerDataForStorage));
-                
-                if (USE_GOOGLE_SHEETS && !result.fallback) {
+                // Redirect to dashboard
+                setTimeout(() => {
                     window.location.href = 'dashboard.html';
-                } else {
-                    window.location.href = 'dashboard.html';
-                }
+                }, 1000);
             } else {
-                const errorMsg = result.message || 'Invalid contact number or password';
-                showError('loginPassword', errorMsg);
+                console.log('Login failed:', result.message);
+                const errorMsg = result.message || 'Invalid email or password';
+                if (errorMsg.toLowerCase().includes('email')) {
+                    showError('loginEmail', errorMsg);
+                } else {
+                    showError('loginPassword', errorMsg);
+                }
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -372,3 +480,26 @@ if (document.getElementById('loginForm')) {
         }
     });
 }
+
+// Initialize auth state listener when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    setupAuthStateListener();
+});
+
+// Logout function
+function logoutUser() {
+    if (window.firebaseServices && window.firebaseServices.auth) {
+        window.firebaseServices.auth.signOut().then(() => {
+            console.log('User signed out successfully');
+            // Clear any local storage
+            localStorage.removeItem('farmerData');
+            // Redirect to login page
+            window.location.href = 'farmer-login.html';
+        }).catch((error) => {
+            console.error('Logout error:', error);
+        });
+    }
+}
+
+// Make logout function globally available
+window.logoutUser = logoutUser;
