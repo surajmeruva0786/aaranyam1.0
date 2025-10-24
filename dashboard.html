@@ -431,22 +431,30 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Upload Images & Documents</label>
-                        <div class="file-upload-container">
-                            <input 
-                                type="file" 
-                                id="fileUpload" 
-                                class="file-input" 
-                                multiple 
-                                accept="image/*,.pdf,.doc,.docx"
-                            >
-                            <label for="fileUpload" class="file-upload-label">
-                                <span class="upload-icon">📁</span>
-                                <span class="upload-text">Click to upload or drag files here</span>
-                                <span class="upload-hint">Images, PDF, DOC (Max 5MB each)</span>
-                            </label>
+                        <label class="form-label">Upload Google Drive File URLs</label>
+                        <div class="url-upload-container">
+                            <div class="url-input-group">
+                                <label for="imageUrls" class="url-label">Image URLs (Photos of damage)</label>
+                                <textarea 
+                                    id="imageUrls" 
+                                    class="url-textarea" 
+                                    placeholder="Paste Google Drive image URLs here, one per line&#10;Example: https://drive.google.com/file/d/1ABC123.../view"
+                                    rows="3"
+                                ></textarea>
+                                <div class="url-hint">💡 Tip: Right-click on Google Drive files → "Get link" → Copy link</div>
+                            </div>
+                            
+                            <div class="url-input-group">
+                                <label for="documentUrls" class="url-label">Document URLs (PDFs, Reports, etc.)</label>
+                                <textarea 
+                                    id="documentUrls" 
+                                    class="url-textarea" 
+                                    placeholder="Paste Google Drive document URLs here, one per line&#10;Example: https://drive.google.com/file/d/1XYZ789.../view"
+                                    rows="3"
+                                ></textarea>
+                                <div class="url-hint">💡 Tip: Make sure your Google Drive files are set to "Anyone with the link can view"</div>
+                            </div>
                         </div>
-                        <div id="filePreview" class="file-preview"></div>
                     </div>
 
                     <div class="form-actions">
