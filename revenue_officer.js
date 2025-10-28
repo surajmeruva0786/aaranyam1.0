@@ -191,7 +191,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
-    document.getElementById('filterStatus').value = 'Field Inspection Complete';
+    document.getElementById('filterStatus').value = 'Field Verified';
     document.getElementById('filterCrop').value = '';
     document.getElementById('filterCause').value = '';
     document.getElementById('filterSearch').value = '';
@@ -228,7 +228,7 @@ function createClaimCard(claim, index) {
     const formattedDate = formatDate(claim.lossDate);
     const submittedDate = formatDate(claim.submittedOn);
     
-    const isPending = claim.status === 'Field Inspection Complete' || claim.status === 'Forwarded to Revenue Officer';
+    const isPending = claim.status === 'Field Verified' || claim.status === 'Field Inspection Complete' || claim.status === 'Forwarded to Revenue Officer';
     
     const inspectionReport = claim.fieldInspectionReport ? `
         <div class="inspection-report">
@@ -303,10 +303,13 @@ function createClaimCard(claim, index) {
 
 function getStatusClass(status) {
     const statusMap = {
+        'Field Verified': 'status-pending',
         'Field Inspection Complete': 'status-pending',
         'Forwarded to Revenue Officer': 'status-pending',
         'Approved by Revenue': 'status-approved',
         'Rejected by Revenue': 'status-rejected',
+        'Rejected by Revenue Officer': 'status-rejected',
+        'Revenue Approved': 'status-approved',
         'Forwarded to Treasury': 'status-forwarded'
     };
     return statusMap[status] || 'status-pending';
@@ -327,6 +330,7 @@ function updateStats() {
     const allClaimsForStats = JSON.parse(localStorage.getItem('farmerClaims') || '[]');
     
     const pending = allClaims.filter(c => 
+        c.status === 'Field Verified' ||
         c.status === 'Field Inspection Complete' || 
         c.status === 'Forwarded to Revenue Officer'
     ).length;
@@ -519,7 +523,7 @@ async function updateClaimStatus(updateData) {
             statusHistory: firebase.firestore.FieldValue.arrayUnion({
                 stage: 'Revenue Officer',
                 status: updateData.status === 'Rejected by Revenue' ? 'Rejected by Revenue Officer' : 'Revenue Approved',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: new Date().toISOString()
             })
         };
         if (updateData.status === 'Forwarded to Treasury') {
