@@ -196,26 +196,32 @@ async function handleLogin(e) {
 
 async function verifyOfficialLogin(username, password, role) {
     try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=officialLogin&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&role=${role}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
+        // Try Firestore first; if missing, fallback to local mock credentials provided
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
             }
         });
-        
-        if (!response.ok) {
-            throw new Error('Login request failed');
+
+        const { db } = window.firebaseServices;
+        const docRef = db.collection('officials').doc(username);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+            const data = docSnap.data();
+            if (data.role !== role && data.role !== 'all') {
+                return { success: false, message: 'Role not permitted for this account' };
+            }
+            if (data.password && data.password === password) {
+                return { success: true, official: { username, role: data.role } };
+            }
+            return { success: false, message: 'Invalid credentials' };
         }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            return { success: true, official: result.official };
-        } else {
-            return { success: false, message: result.message };
-        }
+        // Not found in Firestore → fall back to local list
+        return useLocalStorageOfficialLogin(username, password, role);
     } catch (error) {
-        console.error('Error verifying login with Google Sheets:', error);
+        console.error('Error verifying login with Firestore:', error);
         return useLocalStorageOfficialLogin(username, password, role);
     }
 }

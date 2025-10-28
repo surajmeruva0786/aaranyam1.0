@@ -2,6 +2,7 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1
 
 let allClaims = [];
 let filteredClaims = [];
+let unsubscribeClaims = null;
 let currentView = 'grid';
 let currentClaim = null;
 
@@ -25,12 +26,30 @@ window.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'official_login.html';
             return;
         }
+        // Firestore role guard
+        (async () => {
+            try {
+                await new Promise((resolve) => {
+                    if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+                });
+                const { db } = window.firebaseServices;
+                const doc = await db.collection('officials').doc(data.username).get();
+                const info = doc.exists ? doc.data() : null;
+                if (info && (info.role !== 'revenue_officer' && info.role !== 'all')) {
+                    alert('Access Denied: Role mismatch.');
+                    window.location.href = 'official_login.html';
+                    return;
+                }
+            } catch (e) {
+                console.error('Role verification failed:', e);
+            }
+        })();
         
         document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
         
         initializeFilters();
         initializeCompensationSlider();
-        loadClaims();
+        loadClaimsRealtime();
     } catch (e) {
         console.error('Error parsing official data:', e);
         window.location.href = 'official_login.html';
@@ -74,7 +93,7 @@ function animateSliderFill(slider) {
     slider.style.background = `linear-gradient(to right, #43e97b 0%, #43e97b ${percent}%, rgba(255, 255, 255, 0.1) ${percent}%, rgba(255, 255, 255, 0.1) 100%)`;
 }
 
-async function loadClaims() {
+async function loadClaimsRealtime() {
     const loadingState = document.getElementById('loadingState');
     const emptyState = document.getElementById('emptyState');
     const claimsGrid = document.getElementById('claimsGrid');
@@ -83,7 +102,43 @@ async function loadClaims() {
     emptyState.style.display = 'none';
     claimsGrid.innerHTML = '';
     
-    allClaims = loadLocalClaims();
+    try {
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+        });
+        const { db } = window.firebaseServices;
+        if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
+        const query = db.collection('claims').where('status', 'in', ['Field Verified', 'Forwarded to Revenue Officer', 'Forwarded to Treasury', 'Rejected by Revenue']);
+        unsubscribeClaims = query.onSnapshot((snapshot) => {
+            const claims = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                claims.push({
+                    id: doc.id,
+                    claimId: doc.id,
+                    farmerName: data.farmerName || data.farmerEmail || 'Farmer',
+                    farmerContact: data.farmerContact,
+                    cropType: data.cropType,
+                    lossCause: data.lossCause,
+                    lossDate: data.lossDate,
+                    damageExtent: data.damageExtent,
+                    verifiedDamage: data.fieldReport && data.fieldReport.verifiedDamage,
+                    fieldInspectionReport: data.fieldReport && data.fieldReport.notes,
+                    status: data.status,
+                    description: data.description,
+                    estimatedCompensation: data.estimatedCompensation,
+                    files: [...(data.images || []), ...(data.documents || [])]
+                });
+            });
+            allClaims = claims;
+            populateCropFilter();
+            applyFilters();
+            updateStats();
+        }, (err) => console.error('Revenue officer listener error:', err));
+    } catch (e) {
+        console.error('Error setting up revenue listener:', e);
+        allClaims = loadLocalClaims();
+    }
     
     loadingState.style.display = 'none';
     populateCropFilter();
@@ -399,7 +454,7 @@ async function approveAndForward() {
         if (result.success) {
             alert('Claim approved and forwarded to Treasury successfully!');
             closeProcessModal();
-            loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to approve claim. Please try again.');
         }
@@ -439,7 +494,7 @@ async function confirmReject() {
             alert('Claim rejected successfully.');
             closeRejectModal();
             closeProcessModal();
-            loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to reject claim. Please try again.');
         }
@@ -454,26 +509,37 @@ async function confirmReject() {
 
 async function updateClaimStatus(updateData) {
     try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'updateClaim',
-                ...updateData
-            })
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
         });
-
-        if (response.ok) {
-            const result = await response.json();
-            return result;
-        } else {
-            return { success: false, message: 'Update request failed' };
+        const { db } = window.firebaseServices;
+        const claimRef = db.collection('claims').doc(updateData.claimId);
+        const updates = {
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                stage: 'Revenue Officer',
+                status: updateData.status === 'Rejected by Revenue' ? 'Rejected by Revenue Officer' : 'Revenue Approved',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+        };
+        if (updateData.status === 'Forwarded to Treasury') {
+            updates.status = 'Revenue Approved';
+            updates.forwardedTo = 'Treasury';
+            updates.estimatedCompensation = updateData.estimatedCompensation;
+            updates.revenueRemarks = updateData.revenueRemarks || null;
+            updates.revenueOfficer = updateData.revenueOfficer;
+            updates.processedOn = firebase.firestore.FieldValue.serverTimestamp();
+        } else if (updateData.status === 'Rejected by Revenue') {
+            updates.status = 'Rejected by Revenue Officer';
+            updates.rejectionReason = updateData.rejectionReason;
+            updates.revenueOfficer = updateData.revenueOfficer;
+            updates.processedOn = firebase.firestore.FieldValue.serverTimestamp();
         }
+        await claimRef.update(updates);
+        return { success: true };
     } catch (error) {
-        console.error('Error updating claim:', error);
-        return updateLocalClaim(updateData);
+        console.error('Error updating claim in Firestore:', error);
+        return { success: false, message: error.message };
     }
 }
 

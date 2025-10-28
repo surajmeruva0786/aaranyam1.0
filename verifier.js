@@ -1,6 +1,7 @@
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1ZyN4jaRJchiZo1ctcrZQ_F4WY1CSf4MlVfrLm3Ahp71Lf3oTWj_3THceUPW/exec';
 
 let allClaims = [];
+let unsubscribeClaims = null;
 let filteredClaims = [];
 let currentView = 'grid';
 let currentAction = null;
@@ -26,11 +27,30 @@ window.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'official_login.html';
             return;
         }
+        // Firestore role guard
+        (async () => {
+            try {
+                await new Promise((resolve) => {
+                    if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+                });
+                const { db } = window.firebaseServices;
+                const doc = await db.collection('officials').doc(data.username).get();
+                const info = doc.exists ? doc.data() : null;
+                // Only enforce when a Firestore record exists; if missing, allow fallback credentials
+                if (info && (info.role !== 'verifier' && info.role !== 'all')) {
+                    alert('Access Denied: Role mismatch.');
+                    window.location.href = 'official_login.html';
+                    return;
+                }
+            } catch (e) {
+                console.error('Role verification failed:', e);
+            }
+        })();
         
         document.getElementById('verifierName').textContent = `Welcome back, ${data.username}!`;
         
         initializeFilters();
-        loadClaims();
+        loadClaimsRealtime();
     } catch (e) {
         console.error('Error parsing official data:', e);
         window.location.href = 'official_login.html';
@@ -50,7 +70,7 @@ function initializeFilters() {
     });
 }
 
-async function loadClaims() {
+async function loadClaimsRealtime() {
     const loadingState = document.getElementById('loadingState');
     const emptyState = document.getElementById('emptyState');
     const claimsGrid = document.getElementById('claimsGrid');
@@ -60,29 +80,61 @@ async function loadClaims() {
     claimsGrid.innerHTML = '';
     
     try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getAllClaims`, {
-            method: 'GET'
+        // Wait until Firebase is ready
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
+            }
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.claims) {
-                allClaims = result.claims;
-            } else {
-                allClaims = [];
+        const { db } = window.firebaseServices;
+
+        if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
+        const query = db.collection('claims').where('status', 'in', ['Submitted', 'Pending', 'Verified', 'Approved', 'Rejected', 'Forwarded to Field Officer']);
+        unsubscribeClaims = query.onSnapshot((snapshot) => {
+            const claims = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                claims.push({
+                    id: doc.id,
+                    claimId: doc.id,
+                    farmerName: data.farmerName || data.farmerEmail || 'Farmer',
+                    farmerContact: data.farmerContact,
+                    cropType: data.cropType,
+                    lossCause: data.lossCause,
+                    lossDate: data.lossDate,
+                    damageExtent: data.damageExtent,
+                    status: data.status,
+                    description: data.description,
+                    files: [...(data.images || []), ...(data.documents || [])]
+                });
+            });
+            // Sort newest first using Firestore server timestamp if available
+            allClaims = claims.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            populateCropFilter();
+            applyFilters();
+        }, (err) => {
+            console.error('Verifier listener error:', err);
+            // Fallback to local/mock claims so the UI remains usable without Firestore permissions
+            try {
+                allClaims = loadLocalClaims();
+                populateCropFilter();
+                applyFilters();
+                loadingState.style.display = 'none';
+            } catch (e) {
+                console.error('Fallback load error:', e);
+                loadingState.style.display = 'none';
             }
-        } else {
-            allClaims = [];
-        }
+        });
     } catch (error) {
-        console.error('Error fetching from Google Sheets:', error);
-        allClaims = loadLocalClaims();
+        console.error('Error setting up verifier listener:', error);
+    } finally {
+        loadingState.style.display = 'none';
+        populateCropFilter();
+        applyFilters();
     }
-    
-    loadingState.style.display = 'none';
-    
-    populateCropFilter();
-    applyFilters();
 }
 
 function loadLocalClaims() {
@@ -195,13 +247,13 @@ function createClaimCard(claim, index) {
         ${descriptionHtml}
         
         <div class="action-buttons">
-            <button class="action-btn btn-approve" onclick="openActionModal('approve', '${claim.claimId}')" ${claim.status !== 'Pending' ? 'disabled' : ''}>
+            <button class="action-btn btn-approve" onclick="openActionModal('approve', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
                 <span>✓ Approve</span>
             </button>
-            <button class="action-btn btn-reject" onclick="openActionModal('reject', '${claim.claimId}')" ${claim.status !== 'Pending' ? 'disabled' : ''}>
+            <button class="action-btn btn-reject" onclick="openActionModal('reject', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
                 <span>✗ Reject</span>
             </button>
-            <button class="action-btn btn-forward" onclick="openActionModal('forward', '${claim.claimId}')" ${claim.status !== 'Pending' ? 'disabled' : ''}>
+            <button class="action-btn btn-forward" onclick="openActionModal('forward', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
                 <span>→ Forward</span>
             </button>
         </div>
@@ -405,7 +457,7 @@ async function confirmAction() {
     confirmBtn.classList.add('loading');
     
     const newStatus = {
-        'approve': 'Approved',
+        'approve': 'Verified',
         'reject': 'Rejected',
         'forward': 'Forwarded to Field Officer'
     }[currentAction];
@@ -441,35 +493,30 @@ async function confirmAction() {
 
 async function updateClaimStatus(claimId, newStatus, remarks) {
     try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'updateClaimStatus',
-                claimId: claimId,
-                status: newStatus,
-                remarks: remarks,
-                timestamp: new Date().toISOString()
-            })
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
+            }
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to update claim');
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-            return { success: true };
-        } else {
-            return { success: false, message: result.message };
-        }
+        const { db } = window.firebaseServices;
+        const claimRef = db.collection('claims').doc(claimId);
+        await claimRef.update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            verifierRemarks: remarks || null,
+            statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                stage: 'Verifier',
+                status: newStatus,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+        });
+        return { success: true };
     } catch (error) {
-        console.error('Error updating claim in Google Sheets:', error);
-        updateClaimLocally(claimId, newStatus, remarks);
-        return { success: true, fallback: true };
+        console.error('Error updating claim in Firestore:', error);
+        return { success: false, message: error.message };
     }
 }
 

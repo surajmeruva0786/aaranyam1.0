@@ -2,6 +2,7 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1
 
 let allClaims = [];
 let filteredClaims = [];
+let unsubscribeClaims = null;
 let currentView = 'grid';
 let currentClaim = null;
 let uploadedPhotos = [];
@@ -26,6 +27,24 @@ window.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'official_login.html';
             return;
         }
+        // Firestore role guard
+        (async () => {
+            try {
+                await new Promise((resolve) => {
+                    if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+                });
+                const { db } = window.firebaseServices;
+                const doc = await db.collection('officials').doc(data.username).get();
+                const info = doc.exists ? doc.data() : null;
+                if (info && (info.role !== 'field_officer' && info.role !== 'all')) {
+                    alert('Access Denied: Role mismatch.');
+                    window.location.href = 'official_login.html';
+                    return;
+                }
+            } catch (e) {
+                console.error('Role verification failed:', e);
+            }
+        })();
         
         document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
         
@@ -35,7 +54,7 @@ window.addEventListener('DOMContentLoaded', function() {
         initializeFilters();
         initializePhotoUpload();
         initializeDamageSlider();
-        loadClaims();
+        loadClaimsRealtime();
     } catch (e) {
         console.error('Error parsing official data:', e);
         window.location.href = 'official_login.html';
@@ -73,7 +92,7 @@ function initializeDamageSlider() {
     }
 }
 
-async function loadClaims() {
+async function loadClaimsRealtime() {
     const loadingState = document.getElementById('loadingState');
     const emptyState = document.getElementById('emptyState');
     const claimsGrid = document.getElementById('claimsGrid');
@@ -82,7 +101,45 @@ async function loadClaims() {
     emptyState.style.display = 'none';
     claimsGrid.innerHTML = '';
     
-    allClaims = loadLocalClaims();
+    try {
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) {
+                resolve();
+            } else {
+                window.addEventListener('firebaseReady', resolve);
+            }
+        });
+
+        const { db } = window.firebaseServices;
+        if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
+        const query = db.collection('claims').where('status', 'in', ['Verified', 'Forwarded to Field Officer']);
+        unsubscribeClaims = query.onSnapshot((snapshot) => {
+            const claims = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                claims.push({
+                    id: doc.id,
+                    claimId: doc.id,
+                    farmerName: data.farmerName || data.farmerEmail || 'Farmer',
+                    farmerContact: data.farmerContact,
+                    cropType: data.cropType,
+                    lossCause: data.lossCause,
+                    lossDate: data.lossDate,
+                    damageExtent: data.damageExtent,
+                    status: data.status,
+                    description: data.description,
+                    files: [...(data.images || []), ...(data.documents || [])]
+                });
+            });
+            allClaims = claims;
+            populateCropFilter();
+            applyFilters();
+            updateStats();
+        }, (err) => console.error('Field officer listener error:', err));
+    } catch (e) {
+        console.error('Error setting up field officer listener:', e);
+        allClaims = loadLocalClaims();
+    }
     
     loadingState.style.display = 'none';
     populateCropFilter();
@@ -460,7 +517,7 @@ async function handleInspectionSubmit(e) {
         if (result.success) {
             showSuccessNotification('Inspection report submitted successfully!');
             closeInspectionModal();
-            await loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to submit inspection report');
         }
@@ -475,29 +532,33 @@ async function handleInspectionSubmit(e) {
 
 async function updateClaimWithInspection(claimId, inspectionReport, newStatus) {
     try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+        });
+        const { db } = window.firebaseServices;
+        const claimRef = db.collection('claims').doc(claimId);
+        await claimRef.update({
+            fieldReport: {
+                notes: inspectionReport.inspectionNotes,
+                photoURLs: (inspectionReport.inspectionPhotos || []).map(p => p.data),
+                originalDamage: inspectionReport.originalDamage,
+                verifiedDamage: inspectionReport.verifiedDamage,
+                inspectorName: inspectionReport.inspectorName,
+                inspectionDate: firebase.firestore.FieldValue.serverTimestamp()
             },
-            body: JSON.stringify({
-                action: 'updateClaimInspection',
-                claimId: claimId,
-                inspectionReport: inspectionReport,
-                newStatus: newStatus
+            status: newStatus === 'Rejected' ? 'Rejected' : 'Field Verified',
+            forwardedTo: newStatus === 'Rejected' ? null : 'Revenue Officer',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                stage: 'Field Officer',
+                status: newStatus === 'Rejected' ? 'Rejected' : 'Field Verified',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             })
         });
-
-        if (response.ok) {
-            const result = await response.json();
-            return result;
-        } else {
-            throw new Error('Failed to update claim');
-        }
+        return { success: true };
     } catch (error) {
-        console.error('Error updating Google Sheets:', error);
-        updateLocalClaim(claimId, inspectionReport, newStatus);
-        return { success: true, fallback: true };
+        console.error('Error updating claim in Firestore:', error);
+        return { success: false, message: error.message };
     }
 }
 
@@ -571,7 +632,7 @@ async function confirmReject() {
         if (result.success) {
             showSuccessNotification('Claim rejected successfully');
             closeRejectModal();
-            await loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to reject claim');
         }

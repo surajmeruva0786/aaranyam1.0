@@ -2,6 +2,7 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxoKNA1
 
 let allClaims = [];
 let filteredClaims = [];
+let unsubscribeClaims = null;
 let currentClaim = null;
 
 function logout() {
@@ -24,6 +25,24 @@ window.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'official_login.html';
             return;
         }
+        // Firestore role guard
+        (async () => {
+            try {
+                await new Promise((resolve) => {
+                    if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
+                });
+                const { db } = window.firebaseServices;
+                const doc = await db.collection('officials').doc(data.username).get();
+                const info = doc.exists ? doc.data() : null;
+                if (info && (info.role !== 'treasury_officer' && info.role !== 'all')) {
+                    alert('Access Denied: Role mismatch.');
+                    window.location.href = 'official_login.html';
+                    return;
+                }
+            } catch (e) {
+                console.error('Role verification failed:', e);
+            }
+        })();
         
         document.getElementById('officialName').textContent = `Welcome back, ${data.username}!`;
         
@@ -31,7 +50,7 @@ window.addEventListener('DOMContentLoaded', function() {
         document.getElementById('loginTime').textContent = loginTime.toLocaleTimeString();
         
         initializeFilters();
-        loadClaims();
+        loadClaimsRealtime();
     } catch (e) {
         console.error('Error parsing official data:', e);
         window.location.href = 'official_login.html';
@@ -52,7 +71,7 @@ function initializeFilters() {
     });
 }
 
-async function loadClaims() {
+async function loadClaimsRealtime() {
     const loadingState = document.getElementById('loadingState');
     const emptyState = document.getElementById('emptyState');
     const claimsGrid = document.getElementById('claimsGrid');
@@ -62,26 +81,41 @@ async function loadClaims() {
     claimsGrid.innerHTML = '';
     
     try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getAllClaims`, {
-            method: 'GET'
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
         });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.claims) {
-                allClaims = result.claims.filter(c => 
-                    c.status === 'Forwarded to Treasury' || 
-                    c.status === 'Payment Approved' ||
-                    c.status === 'Rejected by Treasury'
-                );
-            } else {
-                allClaims = [];
-            }
-        } else {
-            allClaims = [];
-        }
+        const { db } = window.firebaseServices;
+        if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
+        const query = db.collection('claims').where('status', 'in', ['Revenue Approved', 'Forwarded to Treasury', 'Payment Approved', 'Rejected by Treasury', 'Rejected by Revenue Officer']);
+        unsubscribeClaims = query.onSnapshot((snapshot) => {
+            const claims = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                claims.push({
+                    id: doc.id,
+                    claimId: doc.id,
+                    farmerName: data.farmerName || data.farmerEmail || 'Farmer',
+                    farmerContact: data.farmerContact,
+                    cropType: data.cropType,
+                    lossCause: data.lossCause,
+                    lossDate: data.lossDate,
+                    damageExtent: data.damageExtent,
+                    verifiedDamage: data.fieldReport && data.fieldReport.verifiedDamage,
+                    status: data.status,
+                    description: data.description,
+                    estimatedCompensation: data.estimatedCompensation,
+                    revenueOfficer: data.revenueOfficer,
+                    processedOn: data.processedOn,
+                    treasuryProcessedOn: data.treasuryProcessedOn,
+                    treasuryOfficer: data.treasuryOfficer
+                });
+            });
+            allClaims = claims;
+            applyFilters();
+            updateStats();
+        }, (err) => console.error('Treasury listener error:', err));
     } catch (error) {
-        console.error('Error fetching from Google Sheets:', error);
+        console.error('Error setting up treasury listener:', error);
         allClaims = loadLocalClaims();
     }
     
@@ -520,7 +554,7 @@ async function confirmApproval() {
         if (result.success) {
             showSuccessNotification('Payment approved successfully! The farmer will be notified.');
             closeApprovalModal();
-            loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to approve payment. Please try again.');
         }
@@ -559,7 +593,7 @@ async function confirmRejection() {
         if (result.success) {
             showSuccessNotification('Claim rejected. The farmer and revenue officer will be notified.');
             closeRejectModal();
-            loadClaims();
+            // live listener will refresh
         } else {
             alert(result.message || 'Failed to reject claim. Please try again.');
         }
@@ -574,26 +608,40 @@ async function confirmRejection() {
 
 async function updateClaimStatus(updateData) {
     try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'updateClaim',
-                ...updateData
-            })
+        await new Promise((resolve) => {
+            if (window.firebaseServices && window.firebaseServices.isInitialized()) { resolve(); } else { window.addEventListener('firebaseReady', resolve); }
         });
-
-        if (response.ok) {
-            const result = await response.json();
-            return result;
-        } else {
-            return { success: false, message: 'Update request failed' };
+        const { db } = window.firebaseServices;
+        const claimRef = db.collection('claims').doc(updateData.claimId);
+        const updates = {
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+        if (updateData.status === 'Payment Approved') {
+            updates.status = 'Payment Approved';
+            updates.treasuryRemarks = updateData.treasuryRemarks || null;
+            updates.treasuryOfficer = updateData.treasuryOfficer;
+            updates.treasuryProcessedOn = firebase.firestore.FieldValue.serverTimestamp();
+            updates.statusHistory = firebase.firestore.FieldValue.arrayUnion({
+                stage: 'Treasury',
+                status: 'Payment Approved',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else if (updateData.status === 'Rejected by Treasury') {
+            updates.status = 'Rejected by Treasury';
+            updates.treasuryRejectionReason = updateData.treasuryRejectionReason;
+            updates.treasuryOfficer = updateData.treasuryOfficer;
+            updates.treasuryProcessedOn = firebase.firestore.FieldValue.serverTimestamp();
+            updates.statusHistory = firebase.firestore.FieldValue.arrayUnion({
+                stage: 'Treasury',
+                status: 'Rejected by Treasury',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
         }
+        await claimRef.update(updates);
+        return { success: true };
     } catch (error) {
-        console.error('Error updating claim:', error);
-        return updateLocalClaim(updateData);
+        console.error('Error updating claim in Firestore:', error);
+        return { success: false, message: error.message };
     }
 }
 

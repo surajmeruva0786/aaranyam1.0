@@ -1,6 +1,10 @@
 let imageUrls = [];
 let documentUrls = [];
 let currentFarmer = null;
+let uploadedFiles = [];
+let claimsUnsubscribe = null;
+let lastClaimsById = {};
+let glowStyleInjected = false;
 
 // Firebase Auth Protection for Dashboard
 async function checkAuthAndLoadUser() {
@@ -275,6 +279,13 @@ async function submitClaimToFirestore(claimData, urlData) {
                 uploadedAt: item.uploadedAt
             })),
             status: "Submitted",
+            statusHistory: [
+                {
+                    stage: 'Farmer',
+                    status: 'Submitted',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }
+            ],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -302,6 +313,23 @@ function showClaimConfirmation(claimId) {
     const confirmationPopup = document.createElement('div');
     confirmationPopup.id = 'claimConfirmationPopup';
     confirmationPopup.innerHTML = `
+        <style>
+            #claimConfirmationPopup { position: fixed; inset: 0; z-index: 9999; }
+            #claimConfirmationPopup .confirmation-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; transition: opacity 300ms ease; display: flex; align-items: center; justify-content: center; padding: 16px; }
+            #claimConfirmationPopup.show .confirmation-overlay { opacity: 1; }
+            #claimConfirmationPopup .confirmation-card { width: 100%; max-width: 440px; background: #ffffff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); transform: translateY(20px) scale(0.98); opacity: 0; transition: transform 300ms ease, opacity 300ms ease; overflow: hidden; }
+            #claimConfirmationPopup.show .confirmation-card { transform: translateY(0) scale(1); opacity: 1; }
+            #claimConfirmationPopup .confirmation-icon { font-size: 44px; line-height: 1; margin: 24px auto 8px; width: 72px; height: 72px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #00d084, #06c167); color: #fff; box-shadow: 0 6px 20px rgba(6,193,103,0.35); }
+            #claimConfirmationPopup .confirmation-title { margin: 8px 20px 0; text-align: center; font-size: 20px; font-weight: 700; color: #0f172a; }
+            #claimConfirmationPopup .confirmation-message { margin: 8px 24px 16px; text-align: center; color: #475569; font-size: 14px; }
+            #claimConfirmationPopup .confirmation-details { display: grid; gap: 8px; margin: 0 20px 16px; padding: 12px; background: #f8fafc; border-radius: 12px; border: 1px solid #eef2f7; }
+            #claimConfirmationPopup .detail-item { display: flex; justify-content: space-between; font-size: 13px; color: #334155; }
+            #claimConfirmationPopup .detail-label { opacity: 0.7; }
+            #claimConfirmationPopup .detail-value { font-weight: 600; }
+            #claimConfirmationPopup .status-submitted { color: #06c167; }
+            #claimConfirmationPopup .confirmation-btn { margin: 0 20px 20px; width: calc(100% - 40px); padding: 12px 16px; border-radius: 10px; border: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 600; cursor: pointer; box-shadow: 0 8px 20px rgba(99,102,241,0.35); transition: transform 120ms ease, box-shadow 120ms ease; }
+            #claimConfirmationPopup .confirmation-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(99,102,241,0.45); }
+        </style>
         <div class="confirmation-overlay">
             <div class="confirmation-card">
                 <div class="confirmation-icon">✅</div>
@@ -333,6 +361,21 @@ function showClaimConfirmation(claimId) {
     setTimeout(() => {
         confirmationPopup.classList.add('show');
     }, 100);
+
+    // Auto-close after short delay and refresh dashboard
+    setTimeout(() => {
+        try {
+            closeClaimConfirmation();
+        } catch (e) {}
+        // Ensure dashboard refreshes
+        try {
+            if (typeof loadClaims === 'function') {
+                loadClaims();
+            }
+        } catch (e) {}
+        // Full page refresh to guarantee updated state
+        try { window.location.reload(); } catch (e) {}
+    }, 2000);
 }
 
 function closeClaimConfirmation() {
@@ -427,6 +470,10 @@ function extractFileNameFromUrl(url) {
 }
 
 function displayFilePreview(fileData, index) {
+    const container = document.getElementById('filePreview');
+    if (!container) {
+        return;
+    }
     const previewItem = document.createElement('div');
     previewItem.className = 'file-preview-item';
     
@@ -468,12 +515,16 @@ function displayFilePreview(fileData, index) {
         previewItem.appendChild(removeBtn);
     }
     
-    filePreview.appendChild(previewItem);
+    container.appendChild(previewItem);
 }
 
 function removeFile(index) {
+    const container = document.getElementById('filePreview');
     uploadedFiles.splice(index, 1);
-    filePreview.innerHTML = '';
+    if (!container) {
+        return;
+    }
+    container.innerHTML = '';
     uploadedFiles.forEach((file, idx) => {
         displayFilePreview(file, idx);
     });
@@ -481,11 +532,12 @@ function removeFile(index) {
 
 function updateFilePreview() {
     try {
-        if (!filePreview) {
+        const container = document.getElementById('filePreview');
+        if (!container) {
             console.log('File preview element not found, skipping update');
             return;
         }
-        filePreview.innerHTML = '';
+        container.innerHTML = '';
         uploadedFiles.forEach((file, idx) => {
             displayFilePreview(file, idx);
         });
@@ -504,8 +556,13 @@ function closeClaimModal() {
     document.body.style.overflow = 'auto';
     document.getElementById('claimForm').reset();
     uploadedFiles = [];
-    filePreview.innerHTML = '';
-    damageValue.textContent = '50%';
+    const container = document.getElementById('filePreview');
+    if (container) {
+        container.innerHTML = '';
+    }
+    if (damageValue) {
+        damageValue.textContent = '50%';
+    }
     clearAllErrors();
 }
 
@@ -666,6 +723,8 @@ async function handleClaimSubmit(e) {
             
             // Show success confirmation
             showClaimConfirmation(claimId);
+            // Hide progress overlay on success
+            hideUploadProgress();
             
             // Close modal and refresh claims
             closeClaimModal();
@@ -686,6 +745,8 @@ async function handleClaimSubmit(e) {
                 console.log('Non-critical error, claim was submitted successfully');
                 // Still show success since the claim was submitted
                 showClaimConfirmation('Claim submitted successfully');
+                // Hide progress overlay on success
+                hideUploadProgress();
                 closeClaimModal();
                 loadClaims();
                 document.getElementById('claimForm').reset();
@@ -795,33 +856,35 @@ async function loadClaims() {
 
         console.log('Fetching claims for user:', user.uid);
         
-        // Query claims from Firestore (simplified to avoid index requirement)
-        const claimsSnapshot = await db.collection('claims')
-            .where('farmerID', '==', user.uid)
-            .get();
+        // Clean up previous listener
+        if (typeof claimsUnsubscribe === 'function') {
+            claimsUnsubscribe();
+        }
 
-        const claims = [];
-        claimsSnapshot.forEach(doc => {
-            const claimData = doc.data();
-            claims.push({
-                id: doc.id,
-                ...claimData,
-                // Convert Firestore timestamps to readable dates
-                createdAt: claimData.createdAt ? claimData.createdAt.toDate() : new Date(),
-                updatedAt: claimData.updatedAt ? claimData.updatedAt.toDate() : new Date()
+        // Real-time listener for user's claims
+        const query = db.collection('claims').where('farmerID', '==', user.uid);
+        claimsUnsubscribe = query.onSnapshot((snapshot) => {
+            const claims = [];
+            snapshot.forEach(doc => {
+                const claimData = doc.data();
+                claims.push({
+                    id: doc.id,
+                    ...claimData,
+                    createdAt: claimData.createdAt && claimData.createdAt.toDate ? claimData.createdAt.toDate() : new Date(),
+                    updatedAt: claimData.updatedAt && claimData.updatedAt.toDate ? claimData.updatedAt.toDate() : new Date()
+                });
             });
-        });
 
-        // Sort by creation date (newest first) on client side
-        claims.sort((a, b) => {
-            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
-            return dateB - dateA; // Newest first
-        });
+            // Sort newest first
+            claims.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        console.log('Claims loaded from Firestore:', claims);
-        displayClaims(claims);
-        updateStats(claims);
+            injectGlowStyleOnce();
+            highlightStatusChanges(claims);
+            displayClaims(claims);
+            updateStats(claims);
+        }, (err) => {
+            console.error('Error in claims listener:', err);
+        });
         
     } catch (error) {
         console.error('Error loading claims from Firestore:', error);
@@ -879,16 +942,19 @@ function displayClaims(claims) {
         statusChip.className = 'status-chip ' + statusClass;
         statusChip.textContent = claim.status;
         statusCell.appendChild(statusChip);
+        // Add glow if claim recently changed
+        if (claim.__glow) {
+            row.classList.add('claim-glow');
+        }
         
         const submittedCell = document.createElement('td');
         submittedCell.textContent = submittedDate;
         
         const actionCell = document.createElement('td');
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'action-btn';
-        viewBtn.textContent = 'View';
-        viewBtn.onclick = () => viewClaim(claim.claimId);
-        actionCell.appendChild(viewBtn);
+        const statusTracker = document.createElement('div');
+        statusTracker.className = 'status-tracker';
+        statusTracker.innerHTML = renderProgressTracker(claim);
+        actionCell.appendChild(statusTracker);
         
         row.appendChild(claimIdCell);
         row.appendChild(cropTypeCell);
@@ -901,6 +967,72 @@ function displayClaims(claims) {
         
         tableBody.appendChild(row);
     });
+}
+
+function renderProgressTracker(claim) {
+    const history = Array.isArray(claim.statusHistory) ? claim.statusHistory : [];
+    const steps = [
+        { key: 'Submitted', label: 'Submitted' },
+        { key: 'Verified', label: 'Verifier' },
+        { key: 'Field Verified', label: 'Field' },
+        { key: 'Revenue Approved', label: 'Revenue' },
+        { key: 'Forwarded to Treasury', label: 'Treasury' },
+        { key: 'Payment Approved', label: 'Paid' }
+    ];
+    const current = claim.status;
+    const parts = steps.map((s, idx) => {
+        const reached = s.key === current || history.some(h => h.status === s.key);
+        const active = s.key === current;
+        return `
+            <div class="tracker-step ${reached ? 'reached' : ''} ${active ? 'active' : ''}">
+                <div class="dot"></div>
+                <div class="lbl">${s.label}</div>
+                ${idx < steps.length - 1 ? '<div class="bar"></div>' : ''}
+            </div>
+        `;
+    }).join('');
+    const style = `
+        <style>
+            .status-tracker{display:flex;gap:10px;align-items:center}
+            .status-tracker .tracker-step{position:relative;display:flex;align-items:center}
+            .status-tracker .dot{width:8px;height:8px;border-radius:50%;background:#cbd5e1}
+            .status-tracker .lbl{margin-left:6px;font-size:11px;color:#475569}
+            .status-tracker .bar{width:22px;height:2px;background:#e2e8f0;margin:0 8px;border-radius:2px}
+            .status-tracker .tracker-step.reached .dot{background:#10b981;box-shadow:0 0 0 4px rgba(16,185,129,.15)}
+            .status-tracker .tracker-step.active .lbl{color:#0f172a;font-weight:600}
+        </style>
+    `;
+    return style + `<div class="tracker">${parts}</div>`;
+}
+
+function injectGlowStyleOnce() {
+    if (glowStyleInjected) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = 'claimGlowStyle';
+    styleEl.textContent = `
+        .claim-glow { 
+            animation: claimPulse 1200ms ease-out 2; 
+        }
+        @keyframes claimPulse {
+            0% { box-shadow: 0 0 0 rgba(6,193,103,0); }
+            40% { box-shadow: 0 0 24px rgba(6,193,103,0.55); }
+            100% { box-shadow: 0 0 0 rgba(6,193,103,0); }
+        }
+    `;
+    document.head.appendChild(styleEl);
+    glowStyleInjected = true;
+}
+
+function highlightStatusChanges(claims) {
+    const nextMap = {};
+    claims.forEach(c => { nextMap[c.id] = c; });
+    claims.forEach(c => {
+        const prev = lastClaimsById[c.id];
+        if (prev && prev.status !== c.status) {
+            c.__glow = true;
+        }
+    });
+    lastClaimsById = nextMap;
 }
 
 function getStatusClass(status) {

@@ -53,6 +53,7 @@ async function initializeFirebase() {
         
         // Dispatch custom event for other scripts to listen
         window.dispatchEvent(new CustomEvent('firebaseReady'));
+        showConnectedIndicator();
         
     } catch (error) {
         console.error('Firebase initialization failed:', error);
@@ -239,6 +240,28 @@ function showFirebaseError() {
     setTimeout(() => {
         errorDiv.remove();
     }, 5000);
+}
+
+// Connected indicator
+function showConnectedIndicator() {
+    const existing = document.getElementById('firebase-connected-indicator');
+    if (existing) return;
+    const el = document.createElement('div');
+    el.id = 'firebase-connected-indicator';
+    el.innerHTML = `
+        <div class="connected-indicator">
+            <div class="pulse"></div>
+            <span>Connected</span>
+        </div>
+    `;
+    const style = document.createElement('style');
+    style.textContent = `
+        .connected-indicator { position: fixed; bottom: 16px; right: 16px; z-index: 9999; background: rgba(15,23,42,0.85); color: #e2e8f0; padding: 8px 12px; border-radius: 999px; display: flex; gap: 8px; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); backdrop-filter: blur(6px); font-size: 12px; }
+        .connected-indicator .pulse { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 0 rgba(16,185,129,0.7); animation: pulseGlow 1.8s infinite; }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 12px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(el);
 }
 
 // Add fadeOut animation to CSS
