@@ -278,12 +278,12 @@ async function submitClaimToFirestore(claimData, urlData) {
                 type: 'document',
                 uploadedAt: item.uploadedAt
             })),
-            status: "Submitted",
+            status: "submitted",
             statusHistory: [
                 {
                     stage: 'Farmer',
-                    status: 'Submitted',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    status: 'submitted',
+                    timestamp: new Date().toISOString()
                 }
             ],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),

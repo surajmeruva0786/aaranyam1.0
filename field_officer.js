@@ -112,7 +112,7 @@ async function loadClaimsRealtime() {
 
         const { db } = window.firebaseServices;
         if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
-        const query = db.collection('claims').where('status', 'in', ['Verified', 'Forwarded to Field Officer']);
+        const query = db.collection('claims').where('status', 'in', ['Verified', 'Forwarded to Field Officer', 'forwarded by verifier']);
         unsubscribeClaims = query.onSnapshot((snapshot) => {
             const claims = [];
             snapshot.forEach(doc => {
@@ -151,7 +151,8 @@ function loadLocalClaims() {
     // Only show claims approved by verifier that haven't been inspected yet
     return localClaims.filter(c => 
         c.status === 'Approved' || 
-        c.status === 'Forwarded to Field Officer'
+        c.status === 'Forwarded to Field Officer' ||
+        c.status === 'forwarded by verifier'
     );
 }
 
@@ -226,37 +227,61 @@ function createClaimCard(claim, index) {
     
     const documentsHtml = generateDocumentsHtml(claim);
     
-    const isPending = claim.status === 'Approved' || claim.status === 'Forwarded to Field Officer';
+    const isPending = claim.status === 'Approved' || claim.status === 'Forwarded to Field Officer' || claim.status === 'forwarded by verifier';
     
     card.innerHTML = `
         <div class="claim-header">
-            <div class="claim-id">${claim.claimId}</div>
+            <div class="claim-id-wrapper">
+                <div class="claim-id-label">Claim ID</div>
+                <div class="claim-id">${claim.claimId}</div>
+            </div>
             <div class="claim-status ${statusClass}">${claim.status}</div>
         </div>
         
         ${inspectionStatus}
         
         <div class="farmer-info">
-            <div class="farmer-name">${claim.farmerName}</div>
-            <div class="farmer-details">
-                <div class="farmer-detail"><strong>Contact:</strong> ${claim.farmerContact || 'N/A'}</div>
-                <div class="farmer-detail"><strong>Submitted:</strong> ${submittedDate}</div>
+            <div class="farmer-avatar">👨‍🌾</div>
+            <div class="farmer-content">
+                <div class="farmer-name">${claim.farmerName}</div>
+                <div class="farmer-details">
+                    <div class="farmer-detail">
+                        <span class="detail-icon">📞</span>
+                        <span>${claim.farmerContact || 'N/A'}</span>
+                    </div>
+                    <div class="farmer-detail">
+                        <span class="detail-icon">📅</span>
+                        <span>${submittedDate}</span>
+                    </div>
+                </div>
             </div>
         </div>
         
         <div class="crop-info" onclick="showClaimDetails('${claim.claimId}')">
             <div class="crop-header">
-                <div class="crop-type">${claim.cropType}</div>
-                <div class="damage-badge">${claim.damageExtent}% Loss</div>
+                <div class="crop-type">
+                    <span class="crop-icon">🌾</span>
+                    <span>${claim.cropType}</span>
+                </div>
+                <div class="damage-badge">
+                    <span class="damage-percent">${claim.damageExtent}%</span>
+                    <span class="damage-label">Loss</span>
+                </div>
             </div>
             <div class="crop-details">
                 <div class="crop-detail">
-                    <div class="crop-detail-label">Loss Cause</div>
-                    <div class="crop-detail-value">${claim.lossCause}</div>
+                    <div class="crop-detail-icon">⚠️</div>
+                    <div class="crop-detail-content">
+                        <div class="crop-detail-label">Loss Cause</div>
+                        <div class="crop-detail-value">${claim.lossCause}</div>
+                    </div>
                 </div>
                 <div class="crop-detail">
-                    <div class="crop-detail-label">Date of Loss</div>
-                    <div class="crop-detail-value">${formattedDate}</div>
+                    <div class="crop-detail-icon">📆</div>
+                    <div class="crop-detail-content">
+                        <div class="crop-detail-label">Date of Loss</div>
+                        <div class="crop-detail-value">${formattedDate}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -265,13 +290,16 @@ function createClaimCard(claim, index) {
         
         <div class="action-buttons">
             <button class="action-btn btn-inspect" onclick="openInspectionModal('${claim.claimId}')" ${!isPending ? 'disabled' : ''}>
-                <span>🔍 Inspect</span>
+                <span class="btn-icon">🔍</span>
+                <span>Inspect</span>
             </button>
             <button class="action-btn btn-reject" onclick="openRejectModal('${claim.claimId}')" ${!isPending ? 'disabled' : ''}>
-                <span>✗ Reject</span>
+                <span class="btn-icon">✗</span>
+                <span>Reject</span>
             </button>
             <button class="action-btn btn-details" onclick="showClaimDetails('${claim.claimId}')">
-                <span>👁 Details</span>
+                <span class="btn-icon">👁</span>
+                <span>Details</span>
             </button>
         </div>
     `;
@@ -311,9 +339,12 @@ function getStatusClass(status) {
         'Pending': 'status-pending',
         'Approved': 'status-approved',
         'Rejected': 'status-rejected',
+        'rejected': 'status-rejected',
         'Forwarded to Field Officer': 'status-forwarded',
+        'forwarded by verifier': 'status-forwarded',
         'Field Inspection Complete': 'status-inspected',
-        'Forwarded to Revenue Officer': 'status-forwarded'
+        'Forwarded to Revenue Officer': 'status-forwarded',
+        'submitted': 'status-submitted'
     };
     return statusMap[status] || 'status-pending';
 }
@@ -544,7 +575,7 @@ async function updateClaimWithInspection(claimId, inspectionReport, newStatus) {
                 originalDamage: inspectionReport.originalDamage,
                 verifiedDamage: inspectionReport.verifiedDamage,
                 inspectorName: inspectionReport.inspectorName,
-                inspectionDate: firebase.firestore.FieldValue.serverTimestamp()
+                inspectionDate: new Date().toISOString()
             },
             status: newStatus === 'Rejected' ? 'Rejected' : 'Field Verified',
             forwardedTo: newStatus === 'Rejected' ? null : 'Revenue Officer',
@@ -552,7 +583,7 @@ async function updateClaimWithInspection(claimId, inspectionReport, newStatus) {
             statusHistory: firebase.firestore.FieldValue.arrayUnion({
                 stage: 'Field Officer',
                 status: newStatus === 'Rejected' ? 'Rejected' : 'Field Verified',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: new Date().toISOString()
             })
         });
         return { success: true };

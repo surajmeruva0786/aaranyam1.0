@@ -92,7 +92,7 @@ async function loadClaimsRealtime() {
         const { db } = window.firebaseServices;
 
         if (typeof unsubscribeClaims === 'function') unsubscribeClaims();
-        const query = db.collection('claims').where('status', 'in', ['Submitted', 'Pending', 'Verified', 'Approved', 'Rejected', 'Forwarded to Field Officer']);
+        const query = db.collection('claims').where('status', 'in', ['submitted', 'Submitted', 'Pending', 'Verified', 'Approved', 'rejected', 'Rejected', 'forwarded by verifier', 'Forwarded to Field Officer']);
         unsubscribeClaims = query.onSnapshot((snapshot) => {
             const claims = [];
             snapshot.forEach(doc => {
@@ -247,13 +247,10 @@ function createClaimCard(claim, index) {
         ${descriptionHtml}
         
         <div class="action-buttons">
-            <button class="action-btn btn-approve" onclick="openActionModal('approve', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
-                <span>✓ Approve</span>
-            </button>
-            <button class="action-btn btn-reject" onclick="openActionModal('reject', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
+            <button class="action-btn btn-reject" onclick="openActionModal('reject', '${claim.claimId}')" ${claim.status !== 'submitted' && claim.status !== 'Submitted' ? 'disabled' : ''}>
                 <span>✗ Reject</span>
             </button>
-            <button class="action-btn btn-forward" onclick="openActionModal('forward', '${claim.claimId}')" ${claim.status !== 'Submitted' ? 'disabled' : ''}>
+            <button class="action-btn btn-forward" onclick="openActionModal('forward', '${claim.claimId}')" ${claim.status !== 'submitted' && claim.status !== 'Submitted' ? 'disabled' : ''}>
                 <span>→ Forward</span>
             </button>
         </div>
@@ -313,7 +310,10 @@ function getStatusClass(status) {
         'Approved': 'status-approved',
         'Rejected': 'status-rejected',
         'Forwarded to Field Officer': 'status-forwarded',
-        'Forwarded': 'status-forwarded'
+        'forwarded by verifier': 'status-forwarded',
+        'Forwarded': 'status-forwarded',
+        'rejected': 'status-rejected',
+        'submitted': 'status-submitted'
     };
     return statusMap[status] || 'status-pending';
 }
@@ -325,10 +325,10 @@ function formatDate(dateString) {
 }
 
 function updateStats() {
-    const pending = allClaims.filter(c => c.status === 'Pending').length;
+    const pending = allClaims.filter(c => c.status === 'Pending' || c.status === 'submitted' || c.status === 'Submitted').length;
     const approved = allClaims.filter(c => c.status === 'Approved').length;
-    const rejected = allClaims.filter(c => c.status === 'Rejected').length;
-    const forwarded = allClaims.filter(c => c.status === 'Forwarded to Field Officer' || c.status === 'Forwarded').length;
+    const rejected = allClaims.filter(c => c.status === 'Rejected' || c.status === 'rejected').length;
+    const forwarded = allClaims.filter(c => c.status === 'Forwarded to Field Officer' || c.status === 'Forwarded' || c.status === 'forwarded by verifier').length;
     
     document.getElementById('totalPending').textContent = pending;
     document.getElementById('totalApproved').textContent = approved;
@@ -376,14 +376,6 @@ function openActionModal(action, claimId) {
     const remarksGroup = document.getElementById('remarksGroup');
     
     const actionConfig = {
-        'approve': {
-            title: 'Approve Claim',
-            icon: '✓',
-            iconBg: 'rgba(67, 233, 123, 0.1)',
-            iconBorder: 'rgba(67, 233, 123, 0.3)',
-            message: 'Are you sure you want to approve this claim? The claim will be moved to the next stage for processing.',
-            showRemarks: true
-        },
         'reject': {
             title: 'Reject Claim',
             icon: '✗',
@@ -457,9 +449,8 @@ async function confirmAction() {
     confirmBtn.classList.add('loading');
     
     const newStatus = {
-        'approve': 'Verified',
-        'reject': 'Rejected',
-        'forward': 'Forwarded to Field Officer'
+        'reject': 'rejected',
+        'forward': 'forwarded by verifier'
     }[currentAction];
     
     try {
@@ -503,6 +494,8 @@ async function updateClaimStatus(claimId, newStatus, remarks) {
 
         const { db } = window.firebaseServices;
         const claimRef = db.collection('claims').doc(claimId);
+        
+        // Use new Date() instead of serverTimestamp() inside arrayUnion to avoid Firestore error
         await claimRef.update({
             status: newStatus,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -510,7 +503,7 @@ async function updateClaimStatus(claimId, newStatus, remarks) {
             statusHistory: firebase.firestore.FieldValue.arrayUnion({
                 stage: 'Verifier',
                 status: newStatus,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: new Date().toISOString()
             })
         });
         return { success: true };

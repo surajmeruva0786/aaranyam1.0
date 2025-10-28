@@ -749,6 +749,164 @@
     margin-bottom: 12px;
 }
 
+/* Enhanced Field Officer Card Styles */
+.claim-id-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.claim-id-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+}
+
+.claim-id {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.farmer-info {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    margin: 16px 0;
+}
+
+.farmer-avatar {
+    font-size: 40px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.farmer-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.farmer-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+}
+
+.farmer-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.farmer-detail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.detail-icon {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.crop-icon {
+    font-size: 18px;
+    margin-right: 4px;
+}
+
+.crop-type {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+}
+
+.damage-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(255, 87, 87, 0.2), rgba(255, 87, 87, 0.1));
+    border: 1px solid rgba(255, 87, 87, 0.4);
+    border-radius: 8px;
+}
+
+.damage-percent {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ff5757;
+    line-height: 1;
+}
+
+.damage-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 87, 87, 0.9);
+    font-weight: 600;
+}
+
+.crop-detail {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.crop-detail-icon {
+    font-size: 20px;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.crop-detail-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.crop-detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+}
+
+.crop-detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.btn-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
 @media (max-width: 768px) {
     .stats-overview {
         grid-template-columns: repeat(2, 1fr);
